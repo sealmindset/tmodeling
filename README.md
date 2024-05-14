@@ -23,25 +23,18 @@ This is a threat modeling tool that interfaces with Redis for data management an
 Located in the root directory of this project, this file should contain:
 
 ```plaintext
-PORT=3000
-OPEN_API_KEY='your openai-api-key'
-REDIS_URL=redis://localhost:6379
-SESSION_SECRET=your_complex_secret_here
+API_KEY='your openai-api-key'
+REDIS_HOST=localhost
+REDIS_PORT=6379
 ```
 
-#### `prompt.txt` File
-The prompt.txt file stores the template for querying the OpenAI API to create threat models.
+#### `prompt-template.txt` File
+The prompt-template.txt file stores the template for querying the OpenAI API to create threat models.
 
 The placeholder is "SUBJECT" and must be capitalized to allow for the dynamic substitution, allowing the prompt to be reused for any threat subject entered at the UI. This helps provide consistent and tailored threat modeling responses. For example:
 
 ```plaintext
 What threats is SUBJECT susceptible to?
-```
-
-The file should be located in the root directory of the project. Once created, insert the prompt into Redis by running:
-
-```plaintext
-node prepopulatePrompt.js
 ```
 
 ## Running
