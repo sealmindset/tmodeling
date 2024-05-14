@@ -9,7 +9,6 @@ This is a threat modeling tool that interfaces with Redis for data management an
 ## Key Features
 - Interactive Threat Generation: Users can request the analysis of new subjects or additional threats for existing subjects directly through a web interface.
 - Threat Model Storage: All generated threat models are stored in Redis, making it easy to retrieve and update models without re-generating them.
-- Duplicate Elimination: The app includes functionality to remove duplicate entries in threat models, ensuring that each threat listed is unique.
 - Scalable Architecture: Utilizing Redis for session management and threat model storage, combined with the power of the OpenAI API for generating rich, intelligent content, the app is designed to be scalable and efficient.
 
 ## Prerequisites
