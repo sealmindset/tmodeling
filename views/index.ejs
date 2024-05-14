@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>TMG</title>
+  <link rel="stylesheet" type="text/css" href="/styles.css">
+</head>
+<body>
+  <h1>Threat Model Generator</h1>
+  <form action="/ask" method="post">
+    <label for="subject">Threat Model:</label>
+    <input type="text" id="subject" name="subject" required>
+    <button type="submit">Submit</button>
+  </form>
+
+  <h2>Threat Models</h2>
+  <% if (subjects.length > 0) { %>
+    <form action="/delete-subjects" method="post">
+      <ul>
+        <% subjects.forEach(subject => { %>
+          <li>
+            <input type="checkbox" name="subjectsToDelete" value="<%= subject %>">
+            <strong><%= subject %></strong> 
+            <a href="/results?subject=<%= encodeURIComponent(subject) %>">View/Edit</a>
+          </li>
+        <% }) %>
+      </ul>
+      <button type="submit">Delete Selected TM</button>
+    </form>
+  <% } else { %>
+    <p>No previous Threat Models found.</p>
+  <% } %>
+
+</body>
+</html>
