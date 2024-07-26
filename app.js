@@ -4,6 +4,9 @@ const axios = require('axios');
 const redis = require('redis');
 const bodyParser = require('body-parser');
 const fs = require('fs');
+const path = require('path');
+const fsp = fs.promises; // Use promises for easier async/await
+
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -29,10 +32,13 @@ client.connect()
   .catch(console.error);
 
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json()); // For parsing application/json
 app.set('view engine', 'ejs');
 app.use(express.static('public'));
 
-const promptTemplate = fs.readFileSync('prompt-template.txt', 'utf-8');
+const promptTemplatePath = path.join(__dirname, 'prompt-template.txt');
+const promptTemplate = fs.readFileSync(promptTemplatePath, 'utf-8');
+const CARDS_PER_PAGE = 15;
 
 // Utility function to get all subjects with titles
 const getAllSubjectsWithTitles = async () => {
@@ -62,8 +68,15 @@ const getFullResponse = async (subject) => {
 
 app.get('/', async (req, res) => {
   try {
-    const subjectsWithTitles = await getAllSubjectsWithTitles();
-    res.render('index', { subjects: subjectsWithTitles });
+    const page = parseInt(req.query.page) || 1;
+    let subjectsWithTitles = await getAllSubjectsWithTitles();
+    
+    // Sort subjects by title
+    subjectsWithTitles.sort((a, b) => a.title.localeCompare(b.title));
+    
+    const totalPages = Math.ceil(subjectsWithTitles.length / CARDS_PER_PAGE);
+    const paginatedSubjects = subjectsWithTitles.slice((page - 1) * CARDS_PER_PAGE, page * CARDS_PER_PAGE);
+    res.render('index', { subjects: paginatedSubjects, currentPage: page, totalPages: totalPages });
   } catch (err) {
     res.send('Error retrieving previous subjects.');
   }
@@ -201,6 +214,52 @@ app.post('/generate-more', async (req, res) => {
     console.error('Error generating more results:', error);
     res.send('Error generating more results.');
   }
+});
+
+// Route to fetch the template content
+app.get('/template', (req, res) => {
+  fs.readFile(promptTemplatePath, 'utf-8', (err, data) => {
+    if (err) {
+      return res.status(500).send('Error reading template file');
+    }
+    res.send(data);
+  });
+});
+
+// Route to save the edited template content with version control
+app.post('/save-template', async (req, res) => {
+  const { content } = req.body;
+  const versionedTemplatePath = (version) => path.join(__dirname, `prompt-template-v${version}.txt`);
+
+  try {
+    // Determine the next version number
+    let version = 1;
+    while (fs.existsSync(versionedTemplatePath(version))) {
+      version += 1;
+    }
+
+    // Save the current template with version number
+    await fsp.copyFile(promptTemplatePath, versionedTemplatePath(version));
+
+    // Save the new content as the current template
+    await fsp.writeFile(promptTemplatePath, content, 'utf-8');
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.error('Error saving template:', error);
+    res.status(500).send('Error saving template');
+  }
+});
+
+app.get('/search', async (req, res) => {
+  const query = req.query.query.toLowerCase();
+  const subjectsWithTitles = await getAllSubjectsWithTitles();
+  
+  const results = subjectsWithTitles.filter(item => 
+    item.title.toLowerCase().includes(query)
+  );
+
+  res.json(results);
 });
 
 app.listen(port, () => {
