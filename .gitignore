@@ -2,3 +2,4 @@
 .DS_Store
 .dccache
 prompt-template.txt
+prompt-template-v*.txt
