@@ -3,12 +3,19 @@
 <head>
   <title>TMG</title>
   <link rel="stylesheet" type="text/css" href="/styles.css">
+  <style>
+    textarea, input[type="text"] {
+      width: 640px;
+      height: 200px;
+      box-sizing: border-box;
+    }
+  </style>
 </head>
 <body>
   <h1>Threat Model Generator</h1>
   <form action="/ask" method="post">
     <label for="subject">Threat Model:</label>
-    <input type="text" id="subject" name="subject" required>
+    <textarea id="subject" name="subject" rows="2" required></textarea>
     <button type="submit">Submit</button>
   </form>
 
@@ -16,11 +23,11 @@
   <% if (subjects.length > 0) { %>
     <form action="/delete-subjects" method="post">
       <ul>
-        <% subjects.forEach(subject => { %>
+        <% subjects.forEach(item => { %>
           <li>
-            <input type="checkbox" name="subjectsToDelete" value="<%= subject %>">
-            <strong><%= subject %></strong> 
-            <a href="/results?subject=<%= encodeURIComponent(subject) %>">View/Edit</a>
+            <input type="checkbox" name="subjectsToDelete" value="<%= item.subject %>">
+            <strong><%= item.title %></strong>
+            <a href="/results?subject=<%= encodeURIComponent(item.subject) %>">View/Edit</a>
           </li>
         <% }) %>
       </ul>

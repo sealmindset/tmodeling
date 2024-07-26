@@ -1,0 +1,28 @@
+Threat: Spoofing Attacks
+Threat: Man-in-the-Middle (MitM) Attacks
+Threat: Injection Attacks
+Threat: Denial of Service (DoS) Attacks
+Threat: Replay Attacks
+Threat: Unauthorized Access
+Threat: Insecure Direct Object References (IDOR)
+Threat: Server-Side Request Forgery (SSRF)
+Threat: Configuration Errors
+Threat: Cross-Site Request Forgery (CSRF)
+Threat: Information Disclosure
+Threat: External Entity Injection (XXE)
+Threat: Resource Exhaustion
+Threat: Improper Access Control
+Threat: API Gateway Vulnerabilities
+Threat: Logic Flaws in Webhook Handlers
+Threat: Insecure Dependencies
+Threat: Cloud Storage Misconfigurations
+Threat: Insecure Integration with Third-Party Services
+Threat: Lack of Observability and Monitoring
+Threat: Misuse of Webhook Functionality
+Threat: Data Tampering
+Threat: Eavesdropping
+Threat: Cross-Site Scripting (XSS) Attacks on Webhooks
+Threat: Lack of Data Validation
+Threat: Insecure Data Storage
+Threat: Lack of Endpoint Authentication
+Threat: Lack of Monitoring and Incident Response
