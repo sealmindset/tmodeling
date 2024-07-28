@@ -1,69 +1,126 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Threat Model Generator Results</title>
+  <title>ChatGPT Results</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" type="text/css" href="/styles.css">
   <style>
-    textarea {
-      resize: vertical; /* Allow vertical resizing */
-      overflow: auto; /* Enable scrolling */
-      min-height: 150px; /* Set a minimum height */
+    textarea, input[type="text"] {
+      width: 640px;
+      box-sizing: border-box;
     }
-    .button-group {
-      display: flex;
-      align-items: center;
+    textarea#newSubject, textarea#title, textarea#editedResponse {
+      height: auto;
     }
-    .button-group .btn {
-      margin-right: 5px;
+    #summaryDialog {
+      display: none;
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      border: 1px solid #ccc;
+      padding: 20px;
+      background: white;
+      z-index: 1000;
+      width: 640px;
     }
-    .button-group .separator {
-      margin-right: 5px;
+    #summaryDialog textarea {
+      width: 100%;
+      height: 400px; /* Set initial height to 400px */
+      min-height: 400px; /* Ensure minimum height is 400px */
+      max-height: 800px; /* Set maximum height to 800px */
+      resize: vertical;
+      overflow-y: scroll; /* Make it scrollable */
+    }
+    #loadingIndicator, #loadingIndicatorTM {
+      display: none;
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      padding: 20px;
+      background: white;
+      border: 1px solid #ccc;
+      z-index: 1000;
     }
   </style>
-</head>
-<body>
-  <div class="container my-5">
-    <h1 class="text-center mb-4">Threat Model Results</h1>
-
-    <form action="/edit" method="post" class="mb-3">
-      <input type="hidden" name="subject" value="<%= subject %>">
-      <div class="mb-3">
-        <label for="newSubject" class="form-label">Subject</label>
-        <textarea class="form-control" id="newSubject" name="newSubject" rows="2"><%= subject %></textarea>
-      </div>
-      <div class="mb-3">
-        <label for="title" class="form-label">Title</label>
-        <input type="text" class="form-control" id="title" name="title" value="<%= title %>">
-      </div>
-      <div class="mb-3">
-        <label for="editedResponse" class="form-label">Response</label>
-        <textarea class="form-control" id="editedResponse" name="editedResponse" rows="12"><%= response %></textarea>
-      </div>
-      <div class="button-group">
-        <button type="submit" class="btn btn-primary">Save</button>
-      </div>
-    </form>
-    <div class="button-group">
-      <form action="/generate-more" method="post" class="d-inline">
-        <input type="hidden" name="subject" value="<%= subject %>">
-        <button type="submit" class="btn btn-secondary">Generate</button>
-      </form>
-      <span class="separator">|</span>
-      <form action="/" method="get" class="d-inline">
-        <button type="submit" class="btn btn-secondary">Home</button>
-      </form>
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // Adjust textarea height to fit content
     function adjustTextareaHeight(textarea) {
       textarea.style.height = 'auto'; // Reset height to auto to calculate the new height correctly
       textarea.style.height = textarea.scrollHeight + 'px'; // Set the height to the scroll height
+    }
+
+    function showSummaryDialog(content = '') {
+      const dialog = document.getElementById('summaryDialog');
+      const textarea = document.getElementById('summaryContent');
+      textarea.value = content;
+      adjustTextareaHeight(textarea);
+      dialog.style.display = 'block';
+    }
+
+    function closeSummaryDialog() {
+      const dialog = document.getElementById('summaryDialog');
+      dialog.style.display = 'none';
+    }
+
+    function saveSummary(subject) {
+      const textarea = document.getElementById('summaryContent');
+      const summary = textarea.value;
+
+      fetch('/save-summary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ subject, summary })
+      }).then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            closeSummaryDialog();
+          } else {
+            alert('Error saving summary');
+          }
+        });
+    }
+
+    function generateSummary(subject) {
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      const newSummaryButton = document.getElementById('newSummaryButton');
+      loadingIndicator.style.display = 'block';
+      newSummaryButton.disabled = true;
+
+      fetch('/generate-summary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ subject })
+      }).then(response => response.json())
+        .then(data => {
+          loadingIndicator.style.display = 'none';
+          newSummaryButton.disabled = false;
+          if (data.success) {
+            showSummaryDialog(data.summary);
+          } else {
+            alert('Error generating summary');
+          }
+        });
+    }
+
+    function viewSummary(subject) {
+      fetch(`/get-summary?subject=${encodeURIComponent(subject)}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            showSummaryDialog(data.summary);
+          } else {
+            alert('Error retrieving summary');
+          }
+        });
+    }
+
+    function showLoadingTM() {
+      const loadingIndicatorTM = document.getElementById('loadingIndicatorTM');
+      loadingIndicatorTM.style.display = 'block';
     }
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -74,5 +131,49 @@
       });
     });
   </script>
+</head>
+<body>
+  <div class="container mt-5">
+    <form action="/edit" method="post" class="mb-4">
+      <input type="hidden" name="subject" value="<%= subject %>">
+      <div class="mb-3">
+        <label for="newSubject" class="form-label">Subject:</label>
+        <textarea id="newSubject" name="newSubject" class="form-control"><%= subject %></textarea>
+      </div>
+      <div class="mb-3">
+        <label for="title" class="form-label">Title:</label>
+        <textarea id="title" name="title" class="form-control"><%= title %></textarea>
+      </div>
+      <div class="mb-3">
+        <label for="editedResponse" class="form-label">Response:</label>
+        <textarea name="editedResponse" id="editedResponse" rows="12" class="form-control"><%= response %></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+    <form action="/generate-more" method="post" class="d-inline" onsubmit="showLoadingTM()">
+      <input type="hidden" name="subject" value="<%= subject %>">
+      <button type="submit" class="btn btn-secondary">Generate TM</button>
+    </form>
+    <button id="newSummaryButton" class="btn btn-info" onclick="generateSummary('<%= subject %>')">New Summary</button>
+    <% if (summary) { %>
+      <button class="btn btn-success" onclick="viewSummary('<%= subject %>')">View Summary</button>
+    <% } %>
+    <button class="btn btn-primary ms-2" onclick="window.location.href='/'">Home</button>
+
+    <div id="summaryDialog">
+      <h2>Report</h2>
+      <textarea id="summaryContent" class="form-control"></textarea>
+      <br>
+      <button class="btn btn-secondary" onclick="closeSummaryDialog()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSummary('<%= subject %>')">Save</button>
+    </div>
+    <div id="loadingIndicator">
+      <p>Generating report, please wait...</p>
+    </div>
+    <div id="loadingIndicatorTM">
+      <p>Generating additional Threat Models, please wait...</p>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
