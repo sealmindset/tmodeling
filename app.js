@@ -263,7 +263,7 @@ app.post('/generate-more', async (req, res) => {
 
     const prompt = promptTemplate.replace('SUBJECT', subject) + "\nContinue generating more results:";
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model: 'gpt-4o',
+      model: 'gpt-4o-2024-05-13',
       messages: [{ role: 'user', content: prompt }],
     }, {
       headers: {

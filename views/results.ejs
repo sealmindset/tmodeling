@@ -3,9 +3,32 @@
 <head>
   <title>TMG Results</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-markdown/2.10.0/css/bootstrap-markdown.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
   <style>
+    body {
+      display: flex;
+    }
+    .navbar-vertical {
+      height: 100vh;
+      width: 200px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      background-color: #f8f9fa;
+      padding-top: 20px;
+    }
+    .navbar-vertical .nav-link {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    .main-content {
+      margin-left: 220px; /* Adjust based on the width of the navbar */
+      padding: 20px;
+      width: 100%;
+    }
     textarea, input[type="text"] {
-      width: 640px;
+      width: 100%;
       box-sizing: border-box;
     }
     textarea#newSubject, textarea#title, textarea#editedResponse {
@@ -43,7 +66,125 @@
       z-index: 1000;
     }
   </style>
+</head>
+<body>
+  <div class="navbar-vertical">
+    <nav class="nav flex-column">
+      <a class="nav-link" href="/"><i class="fa fa-home"></i> Home</a>
+      <form action="/generate-more" method="post" class="nav-link" onsubmit="showLoadingTM()">
+        <input type="hidden" name="subject" value="<%= subject %>">
+        <button type="submit" class="btn btn-link p-0"><i class="fa fa-refresh"></i> Generate TM</button>
+      </form>
+      <button id="newSummaryButton" class="nav-link btn btn-link p-0" onclick="generateSummary('<%= subject %>')"><i class="fa fa-file"></i> New Summary</button>
+      <% if (summary) { %>
+        <button class="nav-link btn btn-link p-0" onclick="viewSummary('<%= subject %>')"><i class="fa fa-eye"></i> View Summary</button>
+      <% } %>
+    </nav>
+  </div>
+
+  <div class="main-content">
+    <form action="/edit" method="post" class="mb-4">
+      <input type="hidden" name="subject" value="<%= subject %>">
+      <div class="mb-3">
+        <label for="newSubject" class="form-label">Subject:</label>
+        <textarea id="newSubject" name="newSubject" class="form-control"><%= subject %></textarea>
+      </div>
+      <div class="mb-3">
+        <label for="title" class="form-label">Title:</label>
+        <textarea id="title" name="title" class="form-control"><%= title %></textarea>
+      </div>
+      <div class="mb-3">
+        <label for="editedResponse" class="form-label">Response:</label>
+        <textarea name="editedResponse" id="editedResponse" rows="12" class="form-control"><%= response %></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+
+    <div id="summaryDialog">
+      <h2>Report</h2>
+      <textarea id="summaryContent" class="form-control"></textarea>
+      <br>
+      <button class="btn btn-secondary" onclick="closeSummaryDialog()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSummary('<%= subject %>')">Save</button>
+    </div>
+    <div id="loadingIndicator">
+      <p>Generating report, please wait...</p>
+    </div>
+    <div id="loadingIndicatorTM">
+      <p>Generating additional Threat Models, please wait...</p>
+    </div>
+
+    <!-- Find and Replace Dialog -->
+    <div id="findReplaceDialog" class="modal" tabindex="-1" role="dialog">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Find and Replace</h5>
+            <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close" onclick="closeFindReplaceDialog()">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="findText" class="form-label">Find</label>
+              <input type="text" id="findText" class="form-control">
+            </div>
+            <div class="mb-3">
+              <label for="replaceText" class="form-label">Replace with</label>
+              <input type="text" id="replaceText" class="form-control">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="closeFindReplaceDialog()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="executeFindReplace()">Replace</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-markdown/2.10.0/js/bootstrap-markdown.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.0.12/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/js/all.min.js"></script>
   <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const textareas = document.querySelectorAll('textarea');
+      textareas.forEach(textarea => {
+        adjustTextareaHeight(textarea); // Adjust height on page load
+        textarea.addEventListener('input', () => adjustTextareaHeight(textarea)); // Adjust height on input
+      });
+
+      $('#editedResponse').markdown({
+        iconlibrary: 'fa',
+        additionalButtons: [
+          [{
+            name: "groupCustom",
+            data: [{
+              name: "cmdReformat",
+              toggle: true, // this param only take effect if you use btn-group
+              title: "Reformat",
+              icon: "fa fa-refresh",
+              callback: function(e) {
+                reformatResponse();
+              }
+            },
+            {
+              name: "cmdFindReplace",
+              toggle: true, // this param only take effect if you use btn-group
+              title: "Find and Replace",
+              icon: "fa fa-search",
+              callback: function(e) {
+                findAndReplace();
+              }
+            }]
+          }]
+        ],
+        autofocus: false,
+        savable: false
+      });
+    });
+
     function adjustTextareaHeight(textarea) {
       textarea.style.height = 'auto'; // Reset height to auto to calculate the new height correctly
       textarea.style.height = textarea.scrollHeight + 'px'; // Set the height to the scroll height
@@ -177,88 +318,6 @@
 
       closeFindReplaceDialog();
     }
-
-    document.addEventListener('DOMContentLoaded', function () {
-      const textareas = document.querySelectorAll('textarea');
-      textareas.forEach(textarea => {
-        adjustTextareaHeight(textarea); // Adjust height on page load
-        textarea.addEventListener('input', () => adjustTextareaHeight(textarea)); // Adjust height on input
-      });
-    });
   </script>
-</head>
-<body>
-  <div class="container mt-5">
-    <form action="/edit" method="post" class="mb-4">
-      <input type="hidden" name="subject" value="<%= subject %>">
-      <div class="mb-3">
-        <label for="newSubject" class="form-label">Subject:</label>
-        <textarea id="newSubject" name="newSubject" class="form-control"><%= subject %></textarea>
-      </div>
-      <div class="mb-3">
-        <label for="title" class="form-label">Title:</label>
-        <textarea id="title" name="title" class="form-control"><%= title %></textarea>
-      </div>
-      <div class="mb-3">
-        <label for="editedResponse" class="form-label">Response:</label>
-        <textarea name="editedResponse" id="editedResponse" rows="12" class="form-control"><%= response %></textarea>
-      </div>
-      <button type="submit" class="btn btn-primary">Save</button>
-    </form>
-    <form action="/generate-more" method="post" class="d-inline" onsubmit="showLoadingTM()">
-      <input type="hidden" name="subject" value="<%= subject %>">
-      <button type="submit" class="btn btn-secondary">Generate TM</button>
-    </form>
-    <button id="newSummaryButton" class="btn btn-info" onclick="generateSummary('<%= subject %>')">New Summary</button>
-    <button id="reformatButton" class="btn btn-warning" onclick="reformatResponse()">Reformat</button>
-    <button id="findReplaceButton" class="btn btn-dark" onclick="findAndReplace()">Find and Replace</button>
-    <% if (summary) { %>
-      <button class="btn btn-success" onclick="viewSummary('<%= subject %>')">View Summary</button>
-    <% } %>
-    <button class="btn btn-primary ms-2" onclick="window.location.href='/'">Home</button>
-
-    <div id="summaryDialog">
-      <h2>Report</h2>
-      <textarea id="summaryContent" class="form-control"></textarea>
-      <br>
-      <button class="btn btn-secondary" onclick="closeSummaryDialog()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveSummary('<%= subject %>')">Save</button>
-    </div>
-    <div id="loadingIndicator">
-      <p>Generating report, please wait...</p>
-    </div>
-    <div id="loadingIndicatorTM">
-      <p>Generating additional Threat Models, please wait...</p>
-    </div>
-
-    <!-- Find and Replace Dialog -->
-    <div id="findReplaceDialog" class="modal" tabindex="-1" role="dialog">
-      <div class="modal-dialog" role="document">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Find and Replace</h5>
-            <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close" onclick="closeFindReplaceDialog()">
-              <span aria-hidden="true">&times;</span>
-            </button>
-          </div>
-          <div class="modal-body">
-            <div class="mb-3">
-              <label for="findText" class="form-label">Find</label>
-              <input type="text" id="findText" class="form-control">
-            </div>
-            <div class="mb-3">
-              <label for="replaceText" class="form-label">Replace with</label>
-              <input type="text" id="replaceText" class="form-control">
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="closeFindReplaceDialog()">Cancel</button>
-            <button type="button" class="btn btn-primary" onclick="executeFindReplace()">Replace</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
