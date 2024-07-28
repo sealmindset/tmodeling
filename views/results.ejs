@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>ChatGPT Results</title>
+  <title>TMG Results</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     textarea, input[type="text"] {
@@ -123,6 +123,61 @@
       loadingIndicatorTM.style.display = 'block';
     }
 
+    async function reformatResponse() {
+      try {
+        const response = await fetch('/results-format');
+        const replacements = await response.json();
+
+        const responseTextarea = document.getElementById('editedResponse');
+        let responseContent = responseTextarea.value;
+
+        // Remove any single asterisks
+        responseContent = responseContent.replace(/\*/g, '');
+
+        // Apply the replacements
+        replacements.forEach(({ pattern, replacement }) => {
+          const regex = new RegExp(pattern, 'gmi');
+          responseContent = responseContent.replace(regex, replacement);
+        });
+
+        // Ensure blank lines are maintained between sections
+        responseContent = responseContent.replace(/(\n\n)([A-Za-z].*?):/g, '$1\n$2:');
+
+        responseTextarea.value = responseContent;
+        adjustTextareaHeight(responseTextarea);
+      } catch (error) {
+        console.error('Error fetching format:', error);
+      }
+    }
+
+    function findAndReplace() {
+      const findReplaceDialog = document.getElementById('findReplaceDialog');
+      findReplaceDialog.style.display = 'block';
+    }
+
+    function closeFindReplaceDialog() {
+      const findReplaceDialog = document.getElementById('findReplaceDialog');
+      findReplaceDialog.style.display = 'none';
+    }
+
+    function executeFindReplace() {
+      const findText = document.getElementById('findText').value;
+      const replaceText = document.getElementById('replaceText').value;
+
+      if (findText !== '') {
+        const responseTextarea = document.getElementById('editedResponse');
+        let responseContent = responseTextarea.value;
+
+        const regex = new RegExp(findText, 'g');
+        responseContent = responseContent.replace(regex, replaceText);
+
+        responseTextarea.value = responseContent;
+        adjustTextareaHeight(responseTextarea);
+      }
+
+      closeFindReplaceDialog();
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
       const textareas = document.querySelectorAll('textarea');
       textareas.forEach(textarea => {
@@ -155,6 +210,8 @@
       <button type="submit" class="btn btn-secondary">Generate TM</button>
     </form>
     <button id="newSummaryButton" class="btn btn-info" onclick="generateSummary('<%= subject %>')">New Summary</button>
+    <button id="reformatButton" class="btn btn-warning" onclick="reformatResponse()">Reformat</button>
+    <button id="findReplaceButton" class="btn btn-dark" onclick="findAndReplace()">Find and Replace</button>
     <% if (summary) { %>
       <button class="btn btn-success" onclick="viewSummary('<%= subject %>')">View Summary</button>
     <% } %>
@@ -172,6 +229,34 @@
     </div>
     <div id="loadingIndicatorTM">
       <p>Generating additional Threat Models, please wait...</p>
+    </div>
+
+    <!-- Find and Replace Dialog -->
+    <div id="findReplaceDialog" class="modal" tabindex="-1" role="dialog">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Find and Replace</h5>
+            <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close" onclick="closeFindReplaceDialog()">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="findText" class="form-label">Find</label>
+              <input type="text" id="findText" class="form-control">
+            </div>
+            <div class="mb-3">
+              <label for="replaceText" class="form-label">Replace with</label>
+              <input type="text" id="replaceText" class="form-control">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="closeFindReplaceDialog()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="executeFindReplace()">Replace</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

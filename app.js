@@ -16,6 +16,7 @@ const openaiApiKey = process.env.API_KEY;
 
 const promptTemplatePath = path.join(__dirname, 'prompt-template.txt');
 const promptSummaryPath = path.join(__dirname, 'prompt-summary.txt');
+const resultsFormatPath = path.join(__dirname, 'results-format.txt');
 
 console.log('Environment Variables:');
 console.log(`API_KEY: ${openaiApiKey ? 'Set' : 'Not Set'}`);
@@ -124,7 +125,7 @@ app.post('/ask', async (req, res) => {
       res.redirect(`/results?subject=${encodeURIComponent(subject)}`);
     } else {
       const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-4',
+        model: 'gpt-4o',
         messages: [{ role: 'user', content: prompt }],
       }, {
         headers: {
@@ -143,18 +144,18 @@ app.post('/ask', async (req, res) => {
   }
 });
 
-// Route to search titles
 app.get('/search-titles', async (req, res) => {
   const query = req.query.query.toLowerCase();
+
   try {
-    let subjectsWithTitles = await getAllSubjectsWithTitles();
-    // Filter subjects by title matching the query
-    let results = subjectsWithTitles.filter(subjectObj =>
+    const subjectsWithTitles = await getAllSubjectsWithTitles();
+    const results = subjectsWithTitles.filter(subjectObj => 
       subjectObj.title.toLowerCase().includes(query)
     );
+
     res.json({ results });
-  } catch (error) {
-    console.error('Error searching titles:', error);
+  } catch (err) {
+    console.error('Error searching titles:', err);
     res.status(500).send('Error searching titles');
   }
 });
@@ -262,7 +263,7 @@ app.post('/generate-more', async (req, res) => {
 
     const prompt = promptTemplate.replace('SUBJECT', subject) + "\nContinue generating more results:";
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model: 'gpt-4',
+      model: 'gpt-4o',
       messages: [{ role: 'user', content: prompt }],
     }, {
       headers: {
@@ -346,6 +347,21 @@ app.get('/summary', (req, res) => {
       return res.status(500).send('Error reading summary file');
     }
     res.send(data);
+  });
+});
+
+// Route to fetch the results format content
+app.get('/results-format', (req, res) => {
+  fs.readFile('results-format.txt', 'utf-8', (err, data) => {
+    if (err) {
+      return res.status(500).send('Error reading results format file');
+    }
+    try {
+      const replacements = JSON.parse(data);
+      res.json(replacements);
+    } catch (err) {
+      res.status(500).send('Error parsing results format file');
+    }
   });
 });
 
