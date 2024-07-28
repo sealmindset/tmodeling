@@ -23,10 +23,40 @@
     .autocomplete-suggestion:hover {
       background-color: #f0f0f0;
     }
+    .sidebar {
+      height: 100%;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 200px;
+      background-color: #f8f9fa;
+      padding-top: 20px;
+    }
+    .sidebar a {
+      padding: 15px;
+      text-decoration: none;
+      font-size: 18px;
+      color: #333;
+      display: block;
+    }
+    .sidebar a:hover {
+      background-color: #ddd;
+    }
   </style>
 </head>
 <body>
-  <div class="container mt-5">
+  <div class="sidebar">
+    <a href="/">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-house" viewBox="0 0 16 16">
+        <path fill-rule="evenodd" d="M8 3.293l6 6V13.5a.5.5 0 0 1-.5.5H10v-2a2 2 0 1 0-4 0v2H2.5a.5.5 0 0 1-.5-.5V9.293l6-6zM7.293 2.5a1 1 0 0 1 1.414 0l6.364 6.364a1 1 0 0 1-.027 1.414l-1 1a1 1 0 0 1-1.414-.027L8 5.414 2.364 11.25a1 1 0 0 1-1.414.027l-1-1a1 1 0 0 1-.027-1.414L7.293 2.5z"/>
+      </svg>
+      Home
+    </a>
+    <a href="#" data-bs-toggle="modal" data-bs-target="#templateModal" onclick="fetchTemplate('template')">Edit Prompt</a>
+    <a href="#" data-bs-toggle="modal" data-bs-target="#summaryModal" onclick="fetchTemplate('summary')">Edit Summary</a>
+  </div>
+
+  <div class="container mt-5" style="margin-left: 220px;">
     <h1 class="text-center mb-5">Threat Model Generator</h1>
 
     <!-- Form for submitting a new threat model -->
@@ -39,8 +69,6 @@
             <textarea class="form-control" id="subject" name="subject" rows="2" required></textarea>
           </div>
           <button type="submit" class="btn btn-primary">Submit</button>
-          <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#templateModal" onclick="fetchTemplate('template')">Edit Prompt</button>
-          <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#summaryModal" onclick="fetchTemplate('summary')">Edit Summary</button>
         </form>
       </div>
     </div>
