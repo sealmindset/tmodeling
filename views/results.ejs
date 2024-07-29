@@ -94,6 +94,9 @@
         <textarea id="title" name="title" class="form-control"><%= title %></textarea>
       </div>
       <div class="mb-3">
+        <p><strong>Model:</strong> <%= model %></p>
+      </div>
+      <div class="mb-3">
         <label for="editedResponse" class="form-label">Response:</label>
         <textarea name="editedResponse" id="editedResponse" rows="12" class="form-control"><%= response %></textarea>
       </div>
@@ -399,259 +402,258 @@
       previewModal.show();
     }
 
-
     function showThreatsModal() {
-  const responseTextarea = document.getElementById('editedResponse');
-  const responseContent = responseTextarea.value;
+      const responseTextarea = document.getElementById('editedResponse');
+      const responseContent = responseTextarea.value;
 
-  const threatsList = document.getElementById('threatsList');
-  threatsList.innerHTML = '';
+      const threatsList = document.getElementById('threatsList');
+      threatsList.innerHTML = '';
 
-  const threatPattern = /## (.*?)\n/g;
-  let match;
-  while ((match = threatPattern.exec(responseContent)) !== null) {
-    const threatItem = document.createElement('li');
-    threatItem.className = 'list-group-item';
-    threatItem.innerHTML = `
-      <input type="checkbox" class="form-check-input me-1" value="${match[1]}">
-      ${match[1]}
-    `;
-    threatsList.appendChild(threatItem);
-  }
+      const threatPattern = /## (.*?)\n/g;
+      let match;
+      while ((match = threatPattern.exec(responseContent)) !== null) {
+        const threatItem = document.createElement('li');
+        threatItem.className = 'list-group-item';
+        threatItem.innerHTML = `
+          <input type="checkbox" class="form-check-input me-1" value="${match[1]}">
+          ${match[1]}
+        `;
+        threatsList.appendChild(threatItem);
+      }
 
-  const threatsModal = new bootstrap.Modal(document.getElementById('threatsModal'));
-  threatsModal.show();
-}
-
-function compareSelectedThreats() {
-  const selectedThreats = Array.from(document.querySelectorAll('#threatsList input:checked'))
-    .map(input => input.value);
-
-  if (selectedThreats.length < 2) {
-    alert('Please select at least two threats to compare.');
-    return;
-  }
-
-  const responseTextarea = document.getElementById('editedResponse');
-  const responseContent = responseTextarea.value;
-
-  const compareContent = document.getElementById('compareContent');
-  compareContent.innerHTML = '';
-
-  selectedThreats.forEach(threat => {
-    const threatPattern = new RegExp(`## ${threat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n([\\s\\S]*?)(?=\\n## |$)`);
-    const threatMatch = responseContent.match(threatPattern);
-
-    if (threatMatch) {
-      const threatDetails = document.createElement('div');
-      threatDetails.className = 'col-md-6';
-      threatDetails.innerHTML = `
-        <h5>${threat}</h5>
-        <pre>${threatMatch[1]}</pre>
-      `;
-      compareContent.appendChild(threatDetails);
+      const threatsModal = new bootstrap.Modal(document.getElementById('threatsModal'));
+      threatsModal.show();
     }
-  });
 
-  const compareModal = new bootstrap.Modal(document.getElementById('compareModal'));
-  compareModal.show();
-}
+    function compareSelectedThreats() {
+      const selectedThreats = Array.from(document.querySelectorAll('#threatsList input:checked'))
+        .map(input => input.value);
 
-document.addEventListener('DOMContentLoaded', function () {
-  const textareas = document.querySelectorAll('textarea');
-  textareas.forEach(textarea => {
-    adjustTextareaHeight(textarea); // Adjust height on page load
-    textarea.addEventListener('input', () => adjustTextareaHeight(textarea)); // Adjust height on input
-  });
+      if (selectedThreats.length < 2) {
+        alert('Please select at least two threats to compare.');
+        return;
+      }
 
-  $('#editedResponse').markdown({
-    iconlibrary: 'fa',
-    additionalButtons: [
-      [{
-        name: "groupCustom",
-        data: [{
-          name: "cmdReformat",
-          toggle: true, // this param only take effect if you use btn-group
-          title: "Reformat",
-          icon: "fa fa-refresh",
-          callback: function(e) {
-            reformatResponse();
-          }
+      const responseTextarea = document.getElementById('editedResponse');
+      const responseContent = responseTextarea.value;
+
+      const compareContent = document.getElementById('compareContent');
+      compareContent.innerHTML = '';
+
+      selectedThreats.forEach(threat => {
+        const threatPattern = new RegExp(`## ${threat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n([\\s\\S]*?)(?=\\n## |$)`);
+        const threatMatch = responseContent.match(threatPattern);
+
+        if (threatMatch) {
+          const threatDetails = document.createElement('div');
+          threatDetails.className = 'col-md-6';
+          threatDetails.innerHTML = `
+            <h5>${threat}</h5>
+            <pre>${threatMatch[1]}</pre>
+          `;
+          compareContent.appendChild(threatDetails);
+        }
+      });
+
+      const compareModal = new bootstrap.Modal(document.getElementById('compareModal'));
+      compareModal.show();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      const textareas = document.querySelectorAll('textarea');
+      textareas.forEach(textarea => {
+        adjustTextareaHeight(textarea); // Adjust height on page load
+        textarea.addEventListener('input', () => adjustTextareaHeight(textarea)); // Adjust height on input
+      });
+
+      $('#editedResponse').markdown({
+        iconlibrary: 'fa',
+        additionalButtons: [
+          [{
+            name: "groupCustom",
+            data: [{
+              name: "cmdReformat",
+              toggle: true, // this param only take effect if you use btn-group
+              title: "Reformat",
+              icon: "fa fa-refresh",
+              callback: function(e) {
+                reformatResponse();
+              }
+            },
+            {
+              name: "cmdFindReplace",
+              toggle: true, // this param only take effect if you use btn-group
+              title: "Find and Replace",
+              icon: "fa fa-search",
+              callback: function(e) {
+                findAndReplace();
+              }
+            },
+            {
+              name: "cmdPreview",
+              toggle: true, // this param only take effect if you use btn-group
+              title: "Preview",
+              icon: "fa fa-eye",
+              callback: function(e) {
+                previewResponse();
+              }
+            }]
+          }]
+        ],
+        autofocus: false,
+        savable: false
+      });
+    });
+
+    function adjustTextareaHeight(textarea) {
+      textarea.style.height = 'auto'; // Reset height to auto to calculate the new height correctly
+      textarea.style.height = textarea.scrollHeight + 'px'; // Set the height to the scroll height
+    }
+
+    function showSummaryDialog(content = '') {
+      const dialog = document.getElementById('summaryDialog');
+      const textarea = document.getElementById('summaryContent');
+      textarea.value = content;
+      adjustTextareaHeight(textarea);
+      dialog.style.display = 'block';
+    }
+
+    function closeSummaryDialog() {
+      const dialog = document.getElementById('summaryDialog');
+      dialog.style.display = 'none';
+    }
+
+    function saveSummary(subject) {
+      const textarea = document.getElementById('summaryContent');
+      const summary = textarea.value;
+
+      fetch('/save-summary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
         },
-        {
-          name: "cmdFindReplace",
-          toggle: true, // this param only take effect if you use btn-group
-          title: "Find and Replace",
-          icon: "fa fa-search",
-          callback: function(e) {
-            findAndReplace();
+        body: JSON.stringify({ subject, summary })
+      }).then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            closeSummaryDialog();
+          } else {
+            alert('Error saving summary');
           }
+        });
+    }
+
+    function generateSummary(subject) {
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      const newSummaryButton = document.getElementById('newSummaryButton');
+      loadingIndicator.style.display = 'block';
+      newSummaryButton.disabled = true;
+
+      fetch('/generate-summary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
         },
-        {
-          name: "cmdPreview",
-          toggle: true, // this param only take effect if you use btn-group
-          title: "Preview",
-          icon: "fa fa-eye",
-          callback: function(e) {
-            previewResponse();
+        body: JSON.stringify({ subject })
+      }).then(response => response.json())
+        .then(data => {
+          loadingIndicator.style.display = 'none';
+          newSummaryButton.disabled = false;
+          if (data.success) {
+            showSummaryDialog(data.summary);
+          } else {
+            alert('Error generating summary');
           }
-        }]
-      }]
-    ],
-    autofocus: false,
-    savable: false
-  });
-});
+        });
+    }
 
-function adjustTextareaHeight(textarea) {
-  textarea.style.height = 'auto'; // Reset height to auto to calculate the new height correctly
-  textarea.style.height = textarea.scrollHeight + 'px'; // Set the height to the scroll height
-}
+    function viewSummary(subject) {
+      fetch(`/get-summary?subject=${encodeURIComponent(subject)}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            showSummaryDialog(data.summary);
+          } else {
+            alert('Error retrieving summary');
+          }
+        });
+    }
 
-function showSummaryDialog(content = '') {
-  const dialog = document.getElementById('summaryDialog');
-  const textarea = document.getElementById('summaryContent');
-  textarea.value = content;
-  adjustTextareaHeight(textarea);
-  dialog.style.display = 'block';
-}
+    function showLoadingTM() {
+      const loadingIndicatorTM = document.getElementById('loadingIndicatorTM');
+      loadingIndicatorTM.style.display = 'block';
+    }
 
-function closeSummaryDialog() {
-  const dialog = document.getElementById('summaryDialog');
-  dialog.style.display = 'none';
-}
+    async function reformatResponse() {
+      try {
+        const response = await fetch('/results-format');
+        const replacements = await response.json();
 
-function saveSummary(subject) {
-  const textarea = document.getElementById('summaryContent');
-  const summary = textarea.value;
+        const responseTextarea = document.getElementById('editedResponse');
+        let responseContent = responseTextarea.value;
 
-  fetch('/save-summary', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ subject, summary })
-  }).then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        closeSummaryDialog();
-      } else {
-        alert('Error saving summary');
+        // Remove any single asterisks
+        responseContent = responseContent.replace(/\*/g, '');
+
+        // Apply the replacements
+        replacements.forEach(({ pattern, replacement }) => {
+          const regex = new RegExp(pattern, 'gmi');
+          responseContent = responseContent.replace(regex, replacement);
+        });
+
+        // Ensure blank lines are maintained between sections
+        responseContent = responseContent.replace(/(\n\n)([A-Za-z].*?):/g, '$1\n$2:');
+
+        responseTextarea.value = responseContent;
+        adjustTextareaHeight(responseTextarea);
+      } catch (error) {
+        console.error('Error fetching format:', error);
       }
-    });
-}
+    }
 
-function generateSummary(subject) {
-  const loadingIndicator = document.getElementById('loadingIndicator');
-  const newSummaryButton = document.getElementById('newSummaryButton');
-  loadingIndicator.style.display = 'block';
-  newSummaryButton.disabled = true;
+    function findAndReplace() {
+      const findReplaceDialog = document.getElementById('findReplaceDialog');
+      findReplaceDialog.style.display = 'block';
+    }
 
-  fetch('/generate-summary', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ subject })
-  }).then(response => response.json())
-    .then(data => {
-      loadingIndicator.style.display = 'none';
-      newSummaryButton.disabled = false;
-      if (data.success) {
-        showSummaryDialog(data.summary);
-      } else {
-        alert('Error generating summary');
+    function closeFindReplaceDialog() {
+      const findReplaceDialog = document.getElementById('findReplaceDialog');
+      findReplaceDialog.style.display = 'none';
+    }
+
+    function executeFindReplace() {
+      const findText = document.getElementById('findText').value;
+      const replaceText = document.getElementById('replaceText').value;
+
+      if (findText !== '') {
+        const responseTextarea = document.getElementById('editedResponse');
+        let responseContent = responseTextarea.value;
+
+        const regex = new RegExp(findText, 'g');
+        responseContent = responseContent.replace(regex, replaceText);
+
+        responseTextarea.value = responseContent;
+        adjustTextareaHeight(responseTextarea);
       }
-    });
-}
 
-function viewSummary(subject) {
-  fetch(`/get-summary?subject=${encodeURIComponent(subject)}`)
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        showSummaryDialog(data.summary);
-      } else {
-        alert('Error retrieving summary');
-      }
-    });
-}
+      closeFindReplaceDialog();
+    }
 
-function showLoadingTM() {
-  const loadingIndicatorTM = document.getElementById('loadingIndicatorTM');
-  loadingIndicatorTM.style.display = 'block';
-}
+    function previewResponse() {
+      const responseTextarea = document.getElementById('editedResponse');
+      const responseContent = responseTextarea.value;
+      const previewContent = document.getElementById('previewContent');
 
-async function reformatResponse() {
-  try {
-    const response = await fetch('/results-format');
-    const replacements = await response.json();
+      // Convert markdown to HTML
+      const htmlContent = marked(responseContent);
 
-    const responseTextarea = document.getElementById('editedResponse');
-    let responseContent = responseTextarea.value;
+      // Display the converted HTML in the modal
+      previewContent.innerHTML = htmlContent;
 
-    // Remove any single asterisks
-    responseContent = responseContent.replace(/\*/g, '');
-
-    // Apply the replacements
-    replacements.forEach(({ pattern, replacement }) => {
-      const regex = new RegExp(pattern, 'gmi');
-      responseContent = responseContent.replace(regex, replacement);
-    });
-
-    // Ensure blank lines are maintained between sections
-    responseContent = responseContent.replace(/(\n\n)([A-Za-z].*?):/g, '$1\n$2:');
-
-    responseTextarea.value = responseContent;
-    adjustTextareaHeight(responseTextarea);
-  } catch (error) {
-    console.error('Error fetching format:', error);
-  }
-}
-
-function findAndReplace() {
-  const findReplaceDialog = document.getElementById('findReplaceDialog');
-  findReplaceDialog.style.display = 'block';
-}
-
-function closeFindReplaceDialog() {
-  const findReplaceDialog = document.getElementById('findReplaceDialog');
-  findReplaceDialog.style.display = 'none';
-}
-
-function executeFindReplace() {
-  const findText = document.getElementById('findText').value;
-  const replaceText = document.getElementById('replaceText').value;
-
-  if (findText !== '') {
-    const responseTextarea = document.getElementById('editedResponse');
-    let responseContent = responseTextarea.value;
-
-    const regex = new RegExp(findText, 'g');
-    responseContent = responseContent.replace(regex, replaceText);
-
-    responseTextarea.value = responseContent;
-    adjustTextareaHeight(responseTextarea);
-  }
-
-  closeFindReplaceDialog();
-}
-
-function previewResponse() {
-  const responseTextarea = document.getElementById('editedResponse');
-  const responseContent = responseTextarea.value;
-  const previewContent = document.getElementById('previewContent');
-
-  // Convert markdown to HTML
-  const htmlContent = marked(responseContent);
-
-  // Display the converted HTML in the modal
-  previewContent.innerHTML = htmlContent;
-
-  // Show the modal
-  const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
-  previewModal.show();
-}
+      // Show the modal
+      const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
+      previewModal.show();
+    }
   </script>
 </body>
 </html>

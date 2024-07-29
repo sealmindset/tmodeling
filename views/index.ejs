@@ -68,6 +68,14 @@
             <label for="subject" class="form-label">Threat Model</label>
             <textarea class="form-control" id="subject" name="subject" rows="2" required></textarea>
           </div>
+          <div class="mb-3">
+            <label for="model" class="form-label">Select Model</label>
+            <select class="form-select" id="model" name="model">
+              <% models.forEach((model, index) => { %>
+                <option value="<%= model %>"><%= model %></option>
+              <% }) %>
+            </select>
+          </div>
           <button type="submit" class="btn btn-primary">Submit</button>
         </form>
       </div>
@@ -136,6 +144,7 @@
           <div class="card">
             <div class="card-body">
               <h5 class="card-title"><%= subjectObj.title %></h5>
+              <p class="card-text">Model: <%= subjectObj.model %></p>
               <a href="/results?subject=<%= encodeURIComponent(subjectObj.subject) %>" class="btn btn-primary">View</a>
               <button class="btn btn-danger" onclick="confirmDelete('<%= subjectObj.subject %>', '<%= subjectObj.title %>')">Delete</button>
             </div>
