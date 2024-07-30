@@ -7,11 +7,4 @@ prompt-summary.txt
 prompt-summary-v*.txt
 results-format.txt
 results-format-v*.txt
-updateModel.js
-clearSummaries.js
-checkEnv.js
-migrateTitles.js
-prepopulateSummary.js
-viewSummaries.js
-testRedis.js
-*.py
+tools/
