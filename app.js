@@ -4,6 +4,7 @@ const axios = require('axios');
 const redis = require('redis');
 const bodyParser = require('body-parser');
 const fs = require('fs');
+const fsp = require('fs').promises;
 const path = require('path');
 const naturalCompare = require('natural-compare');
 const app = express();
@@ -16,6 +17,7 @@ const openaiApiKey = process.env.API_KEY;
 const promptTemplatePath = path.join(__dirname, 'prompt-template.txt');
 const promptSummaryPath = path.join(__dirname, 'prompt-summary.txt');
 const resultsFormatPath = path.join(__dirname, 'results-format.txt');
+const modelsPath = path.join(__dirname, 'models.txt');
 
 console.log('Environment Variables:');
 console.log(`API_KEY: ${openaiApiKey ? 'Set' : 'Not Set'}`);
@@ -48,21 +50,25 @@ app.use(express.static('public'));
 const promptTemplate = fs.readFileSync(promptTemplatePath, 'utf-8');
 const promptSummary = fs.readFileSync(promptSummaryPath, 'utf-8');
 
-const getAllSubjectsWithTitles = async () => {
+const models = fs.readFileSync(modelsPath, 'utf-8').split('\n').filter(Boolean);
+
+// Utility function to get all subjects with titles and models
+const getAllSubjectsWithTitlesAndModels = async () => {
   try {
     const keys = await client.keys('gpt-response:*');
-    const subject_ids = keys.map(key => key.replace('gpt-response:', ''));
-    const subjectsPromises = subject_ids.map(subject_id => client.get(`subject:${subject_id}`));
-    const titlesPromises = subject_ids.map(subject_id => client.get(`title:${subject_id}`));
-    const subjects = await Promise.all(subjectsPromises);
+    const subjects = keys.map(key => key.replace('gpt-response:', ''));
+    const titlesPromises = subjects.map(subject => client.get(`title:${subject}`));
+    const modelsPromises = subjects.map(subject => client.get(`model:${subject}`));
     const titles = await Promise.all(titlesPromises);
-    return subject_ids.map((subject_id, index) => ({ subject_id, subject: subjects[index], title: titles[index] }));
+    const models = await Promise.all(modelsPromises);
+    return subjects.map((subject, index) => ({ subject, title: titles[index], model: models[index] }));
   } catch (err) {
     console.error('Error fetching subjects:', err);
     throw err;
   }
 };
 
+// Utility function to get the full response for a subject
 const getFullResponse = async (subject) => {
   try {
     const cacheKey = `gpt-response:${subject}`;
@@ -74,6 +80,7 @@ const getFullResponse = async (subject) => {
   }
 };
 
+// Utility function to get the summary for a subject
 const getSummary = async (subject) => {
   try {
     const summaryKey = `summary:${subject}`;
@@ -85,38 +92,26 @@ const getSummary = async (subject) => {
   }
 };
 
-const getModel = async (subject) => {
-  try {
-    const modelKey = `model:${subject}`;
-    const model = await client.get(modelKey);
-    return model;
-  } catch (err) {
-    console.error('Error fetching model:', err);
-    throw err;
-  }
-};
-
 app.get('/', async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = 10;
 
   try {
-    let subjectsWithTitles = await getAllSubjectsWithTitles();
-    subjectsWithTitles.sort((a, b) => naturalCompare(a.title, b.title));
+    let subjectsWithTitlesAndModels = await getAllSubjectsWithTitlesAndModels();
+    // Sort subjects by title using natural sorting
+    subjectsWithTitlesAndModels.sort((a, b) => naturalCompare(a.title, b.title));
     
-    const totalSubjects = subjectsWithTitles.length;
+    const totalSubjects = subjectsWithTitlesAndModels.length;
     const totalPages = Math.ceil(totalSubjects / pageSize);
     const currentPage = page;
 
-    const paginatedSubjects = subjectsWithTitles.slice((page - 1) * pageSize, page * pageSize);
-
-    const models = fs.readFileSync('models.txt', 'utf-8').split('\n').filter(Boolean);
+    const paginatedSubjects = subjectsWithTitlesAndModels.slice((page - 1) * pageSize, page * pageSize);
 
     res.render('index', { 
       subjects: paginatedSubjects, 
       currentPage, 
       totalPages,
-      models 
+      models
     });
   } catch (err) {
     res.send('Error retrieving previous subjects.');
@@ -125,8 +120,8 @@ app.get('/', async (req, res) => {
 
 app.post('/ask', async (req, res) => {
   const subject = req.body.subject;
-  const model = req.body.model || 'gpt-4o';
-  const title = subject;
+  const model = req.body.model || models[0]; // Default to the first model if none is selected
+  const title = subject; // Initial title is the subject
   const prompt = promptTemplate.replace('SUBJECT', subject);
   const cacheKey = `gpt-response:${subject}`;
   const titleKey = `title:${subject}`;
@@ -147,9 +142,9 @@ app.post('/ask', async (req, res) => {
       });
 
       const apiResponse = response.data.choices[0].message.content;
-      await client.set(cacheKey, apiResponse, { EX: 3600 });
-      await client.set(titleKey, title);
-      await client.set(modelKey, model);
+      await client.set(cacheKey, apiResponse, { EX: 3600 }); // Cache for 1 hour
+      await client.set(titleKey, title); // Save the title
+      await client.set(modelKey, model); // Save the model
       res.redirect(`/results?subject=${encodeURIComponent(subject)}`);
     }
   } catch (error) {
@@ -162,7 +157,7 @@ app.get('/search-titles', async (req, res) => {
   const query = req.query.query.toLowerCase();
 
   try {
-    const subjectsWithTitles = await getAllSubjectsWithTitles();
+    const subjectsWithTitles = await getAllSubjectsWithTitlesAndModels();
     const results = subjectsWithTitles.filter(subjectObj => 
       subjectObj.title.toLowerCase().includes(query)
     );
@@ -175,44 +170,39 @@ app.get('/search-titles', async (req, res) => {
 });
 
 app.get('/results', async (req, res) => {
-  const subject_id = req.query.subject_id;
-  let response, title, summary, model, subject;
-  console.log('/results', subject_id); // Log the subject_id for debugging purposes
-
-  if (!subject_id) {
-    res.send('Error: subject_id is required');
-    return;
-  }
+  const { subject } = req.query;
+  let response;
+  let title;
+  let summary;
+  let model;
 
   try {
-    response = await getFullResponse(subject_id);
-    subject = await client.get(`subject:${subject_id}`);
-    title = await client.get(`title:${subject_id}`);
-    summary = await getSummary(subject_id);
-    model = await getModel(subject_id);
+    response = await getFullResponse(subject);
+    title = await client.get(`title:${subject}`);
+    summary = await getSummary(subject);
+    model = await client.get(`model:${subject}`);
   } catch (error) {
     console.error('Error fetching response from Redis:', error);
     res.send('Error fetching response from Redis.');
     return;
   }
 
-  res.render('results', { subject_id, subject, response, title, summary, model });
+  res.render('results', { subject: decodeURIComponent(subject), response, title, summary, model });
 });
 
 app.get('/get-summary', async (req, res) => {
-  const { subject_id } = req.query;
+  const { subject } = req.query;
 
   try {
-    console.log('Fetching summary for subject_id:', subject_id); // Add logging
-    const summary = await client.get(`summary:${subject_id}`);
+    const summary = await getSummary(subject);
     if (summary) {
       res.json({ success: true, summary });
     } else {
       res.json({ success: false, error: 'No summary found' });
     }
   } catch (error) {
-    console.error('Error fetching summary:', error);
-    res.json({ success: false, error: 'Error fetching summary' });
+    console.error('Error fetching summary from Redis:', error);
+    res.json({ success: false, error: 'Error fetching summary from Redis' });
   }
 });
 
@@ -220,17 +210,23 @@ app.post('/edit', async (req, res) => {
   const { subject, newSubject, editedResponse, title } = req.body;
   const oldCacheKey = `gpt-response:${subject}`;
   const oldTitleKey = `title:${subject}`;
+  const oldModelKey = `model:${subject}`;
   const newCacheKey = `gpt-response:${newSubject}`;
   const newTitleKey = `title:${newSubject}`;
+  const newModelKey = `model:${newSubject}`;
 
   try {
+    // If subject is changed, update Redis keys
     if (subject !== newSubject) {
       const oldResponse = await client.get(oldCacheKey);
       const oldTitle = await client.get(oldTitleKey);
+      const oldModel = await client.get(oldModelKey);
       await client.set(newCacheKey, editedResponse || oldResponse);
       await client.set(newTitleKey, title || oldTitle);
+      await client.set(newModelKey, oldModel);
       await client.del(oldCacheKey);
       await client.del(oldTitleKey);
+      await client.del(oldModelKey);
     } else {
       await client.set(oldCacheKey, editedResponse);
       await client.set(oldTitleKey, title);
@@ -278,12 +274,13 @@ app.post('/delete-subjects', async (req, res) => {
 app.post('/generate-more', async (req, res) => {
   const subject = req.body.subject;
   const cacheKey = `gpt-response:${subject}`;
+  const modelKey = `model:${subject}`;
 
   try {
     let existingResponse = await getFullResponse(subject);
     if (!existingResponse) existingResponse = '';
 
-    const model = await getModel(subject) || 'gpt-4o';
+    const model = await client.get(modelKey) || models[0]; // Default to the first model if none is set
     const prompt = promptTemplate.replace('SUBJECT', subject) + "\nContinue generating more results:";
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
       model,
@@ -306,22 +303,24 @@ app.post('/generate-more', async (req, res) => {
 });
 
 app.post('/generate-summary', async (req, res) => {
-  const { subject_id } = req.body;
-  const cacheKey = `gpt-response:${subject_id}`;
-  const summaryKey = `summary:${subject_id}`;
+  const { subject } = req.body;
+  const cacheKey = `gpt-response:${subject}`;
+  const summaryKey = `summary:${subject}`;
+  const modelKey = `model:${subject}`;
 
   try {
-    console.log('Generating summary for subject_id:', subject_id); // Add logging
-    const existingResponse = await getFullResponse(subject_id);
+    console.log('Generating summary for subject:', subject); // Add logging
+    const existingResponse = await getFullResponse(subject);
     if (!existingResponse) {
       throw new Error('No existing response found for subject');
     }
 
-    const prompt = `${promptSummary}\n\nThreat Model: ${subject_id}\n\nMitigation Strategies:\n${existingResponse}`;
+    const model = await client.get(modelKey) || models[0]; // Default to the first model if none is set
+    const prompt = `${promptSummary}\n\nThreat Model: ${subject}\n\nMitigation Strategies:\n${existingResponse}`;
     console.log('Prompt for summary:', prompt); // Add logging
 
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model: 'gpt-4o',
+      model,
       messages: [{ role: 'user', content: prompt }],
     }, {
       headers: {
@@ -340,6 +339,18 @@ app.post('/generate-summary', async (req, res) => {
   }
 });
 
+app.post('/save-summary', async (req, res) => {
+  const { subject, summary } = req.body;
+  const summaryKey = `summary:${subject}`;
+
+  try {
+    await client.set(summaryKey, summary);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving summary:', error);
+    res.json({ success: false, error: 'Error saving summary' });
+  }
+});
 
 // Route to fetch the template content
 app.get('/template', (req, res) => {
@@ -389,10 +400,10 @@ app.post('/save-template', async (req, res) => {
     }
 
     // Save the current template with version number
-    await fs.promises.copyFile(promptTemplatePath, versionedTemplatePath(version));
+    await fsp.copyFile(promptTemplatePath, versionedTemplatePath(version));
 
     // Save the new content as the current template
-    await fs.promises.writeFile(promptTemplatePath, content, 'utf-8');
+    await fsp.writeFile(promptTemplatePath, content, 'utf-8');
 
     res.sendStatus(200);
   } catch (error) {
@@ -403,30 +414,29 @@ app.post('/save-template', async (req, res) => {
 
 // Route to save the edited summary content with version control
 app.post('/save-summary', async (req, res) => {
-  const { subject_id, summary } = req.body;
-
-  console.log('Saving summary for subject_id:', subject_id); // Add logging
-  console.log('Summary content:', summary); // Add logging
-
-  if (!subject_id || !summary) {
-    console.error('Invalid subject_id or summary content'); // Add logging
-    return res.status(400).json({ success: false, error: 'Invalid subject or content' });
-  }
-
-  const summaryKey = `summary:${subject_id}`;
+  const { content } = req.body;
+  const versionedSummaryPath = (version) => path.join(__dirname, `prompt-summary-v${version}.txt`);
 
   try {
-    await client.set(summaryKey, summary);
-    console.log('Summary saved successfully'); // Add logging
-    res.json({ success: true });
+    // Determine the next version number
+    let version = 1;
+    while (fs.existsSync(versionedSummaryPath(version))) {
+      version += 1;
+    }
+
+    // Save the current summary with version number
+    await fsp.copyFile(promptSummaryPath, versionedSummaryPath(version));
+
+    // Save the new content as the current summary
+    await fsp.writeFile(promptSummaryPath, content, 'utf-8');
+
+    res.sendStatus(200);
   } catch (error) {
     console.error('Error saving summary:', error);
-    res.status(500).json({ success: false, error: 'Error saving summary' });
+    res.status(500).send('Error saving summary');
   }
 });
-
 
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
- 
