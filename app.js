@@ -4,7 +4,6 @@ const axios = require('axios');
 const redis = require('redis');
 const bodyParser = require('body-parser');
 const fs = require('fs');
-const fsp = require('fs').promises;
 const path = require('path');
 const naturalCompare = require('natural-compare');
 const app = express();
@@ -17,7 +16,6 @@ const openaiApiKey = process.env.API_KEY;
 const promptTemplatePath = path.join(__dirname, 'prompt-template.txt');
 const promptSummaryPath = path.join(__dirname, 'prompt-summary.txt');
 const resultsFormatPath = path.join(__dirname, 'results-format.txt');
-const modelsPath = path.join(__dirname, 'models.txt');
 
 console.log('Environment Variables:');
 console.log(`API_KEY: ${openaiApiKey ? 'Set' : 'Not Set'}`);
@@ -50,25 +48,19 @@ app.use(express.static('public'));
 const promptTemplate = fs.readFileSync(promptTemplatePath, 'utf-8');
 const promptSummary = fs.readFileSync(promptSummaryPath, 'utf-8');
 
-const models = fs.readFileSync(modelsPath, 'utf-8').split('\n').filter(Boolean);
-
-// Utility function to get all subjects with titles and models
-const getAllSubjectsWithTitlesAndModels = async () => {
+const getAllSubjectsWithTitles = async () => {
   try {
     const keys = await client.keys('gpt-response:*');
     const subjects = keys.map(key => key.replace('gpt-response:', ''));
     const titlesPromises = subjects.map(subject => client.get(`title:${subject}`));
-    const modelsPromises = subjects.map(subject => client.get(`model:${subject}`));
     const titles = await Promise.all(titlesPromises);
-    const models = await Promise.all(modelsPromises);
-    return subjects.map((subject, index) => ({ subject, title: titles[index], model: models[index] }));
+    return subjects.map((subject, index) => ({ subject, title: titles[index] }));
   } catch (err) {
     console.error('Error fetching subjects:', err);
     throw err;
   }
 };
 
-// Utility function to get the full response for a subject
 const getFullResponse = async (subject) => {
   try {
     const cacheKey = `gpt-response:${subject}`;
@@ -80,7 +72,6 @@ const getFullResponse = async (subject) => {
   }
 };
 
-// Utility function to get the summary for a subject
 const getSummary = async (subject) => {
   try {
     const summaryKey = `summary:${subject}`;
@@ -92,26 +83,38 @@ const getSummary = async (subject) => {
   }
 };
 
+const getModel = async (subject) => {
+  try {
+    const modelKey = `model:${subject}`;
+    const model = await client.get(modelKey);
+    return model;
+  } catch (err) {
+    console.error('Error fetching model:', err);
+    throw err;
+  }
+};
+
 app.get('/', async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = 10;
 
   try {
-    let subjectsWithTitlesAndModels = await getAllSubjectsWithTitlesAndModels();
-    // Sort subjects by title using natural sorting
-    subjectsWithTitlesAndModels.sort((a, b) => naturalCompare(a.title, b.title));
+    let subjectsWithTitles = await getAllSubjectsWithTitles();
+    subjectsWithTitles.sort((a, b) => naturalCompare(a.title, b.title));
     
-    const totalSubjects = subjectsWithTitlesAndModels.length;
+    const totalSubjects = subjectsWithTitles.length;
     const totalPages = Math.ceil(totalSubjects / pageSize);
     const currentPage = page;
 
-    const paginatedSubjects = subjectsWithTitlesAndModels.slice((page - 1) * pageSize, page * pageSize);
+    const paginatedSubjects = subjectsWithTitles.slice((page - 1) * pageSize, page * pageSize);
+
+    const models = fs.readFileSync('models.txt', 'utf-8').split('\n').filter(Boolean);
 
     res.render('index', { 
       subjects: paginatedSubjects, 
       currentPage, 
       totalPages,
-      models
+      models 
     });
   } catch (err) {
     res.send('Error retrieving previous subjects.');
@@ -120,8 +123,8 @@ app.get('/', async (req, res) => {
 
 app.post('/ask', async (req, res) => {
   const subject = req.body.subject;
-  const model = req.body.model || models[0]; // Default to the first model if none is selected
-  const title = subject; // Initial title is the subject
+  const model = req.body.model || 'gpt-4o';
+  const title = subject;
   const prompt = promptTemplate.replace('SUBJECT', subject);
   const cacheKey = `gpt-response:${subject}`;
   const titleKey = `title:${subject}`;
@@ -142,9 +145,9 @@ app.post('/ask', async (req, res) => {
       });
 
       const apiResponse = response.data.choices[0].message.content;
-      await client.set(cacheKey, apiResponse, { EX: 3600 }); // Cache for 1 hour
-      await client.set(titleKey, title); // Save the title
-      await client.set(modelKey, model); // Save the model
+      await client.set(cacheKey, apiResponse, { EX: 3600 });
+      await client.set(titleKey, title);
+      await client.set(modelKey, model);
       res.redirect(`/results?subject=${encodeURIComponent(subject)}`);
     }
   } catch (error) {
@@ -157,7 +160,7 @@ app.get('/search-titles', async (req, res) => {
   const query = req.query.query.toLowerCase();
 
   try {
-    const subjectsWithTitles = await getAllSubjectsWithTitlesAndModels();
+    const subjectsWithTitles = await getAllSubjectsWithTitles();
     const results = subjectsWithTitles.filter(subjectObj => 
       subjectObj.title.toLowerCase().includes(query)
     );
@@ -171,16 +174,13 @@ app.get('/search-titles', async (req, res) => {
 
 app.get('/results', async (req, res) => {
   const { subject } = req.query;
-  let response;
-  let title;
-  let summary;
-  let model;
+  let response, title, summary, model;
 
   try {
     response = await getFullResponse(subject);
     title = await client.get(`title:${subject}`);
     summary = await getSummary(subject);
-    model = await client.get(`model:${subject}`);
+    model = await getModel(subject);
   } catch (error) {
     console.error('Error fetching response from Redis:', error);
     res.send('Error fetching response from Redis.');
@@ -210,23 +210,17 @@ app.post('/edit', async (req, res) => {
   const { subject, newSubject, editedResponse, title } = req.body;
   const oldCacheKey = `gpt-response:${subject}`;
   const oldTitleKey = `title:${subject}`;
-  const oldModelKey = `model:${subject}`;
   const newCacheKey = `gpt-response:${newSubject}`;
   const newTitleKey = `title:${newSubject}`;
-  const newModelKey = `model:${newSubject}`;
 
   try {
-    // If subject is changed, update Redis keys
     if (subject !== newSubject) {
       const oldResponse = await client.get(oldCacheKey);
       const oldTitle = await client.get(oldTitleKey);
-      const oldModel = await client.get(oldModelKey);
       await client.set(newCacheKey, editedResponse || oldResponse);
       await client.set(newTitleKey, title || oldTitle);
-      await client.set(newModelKey, oldModel);
       await client.del(oldCacheKey);
       await client.del(oldTitleKey);
-      await client.del(oldModelKey);
     } else {
       await client.set(oldCacheKey, editedResponse);
       await client.set(oldTitleKey, title);
@@ -274,13 +268,12 @@ app.post('/delete-subjects', async (req, res) => {
 app.post('/generate-more', async (req, res) => {
   const subject = req.body.subject;
   const cacheKey = `gpt-response:${subject}`;
-  const modelKey = `model:${subject}`;
 
   try {
     let existingResponse = await getFullResponse(subject);
     if (!existingResponse) existingResponse = '';
 
-    const model = await client.get(modelKey) || models[0]; // Default to the first model if none is set
+    const model = await getModel(subject) || 'gpt-4o';
     const prompt = promptTemplate.replace('SUBJECT', subject) + "\nContinue generating more results:";
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
       model,
@@ -306,7 +299,6 @@ app.post('/generate-summary', async (req, res) => {
   const { subject } = req.body;
   const cacheKey = `gpt-response:${subject}`;
   const summaryKey = `summary:${subject}`;
-  const modelKey = `model:${subject}`;
 
   try {
     console.log('Generating summary for subject:', subject); // Add logging
@@ -315,12 +307,11 @@ app.post('/generate-summary', async (req, res) => {
       throw new Error('No existing response found for subject');
     }
 
-    const model = await client.get(modelKey) || models[0]; // Default to the first model if none is set
     const prompt = `${promptSummary}\n\nThreat Model: ${subject}\n\nMitigation Strategies:\n${existingResponse}`;
     console.log('Prompt for summary:', prompt); // Add logging
 
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model,
+      model: 'gpt-4',
       messages: [{ role: 'user', content: prompt }],
     }, {
       headers: {
@@ -349,6 +340,24 @@ app.post('/save-summary', async (req, res) => {
   } catch (error) {
     console.error('Error saving summary:', error);
     res.json({ success: false, error: 'Error saving summary' });
+  }
+});
+
+// Update merged content in Redis
+app.post('/update-merged-content', async (req, res) => {
+  const { subject, mergedContent } = req.body;
+  const cacheKey = `gpt-response:${subject}`;
+
+  console.log(`Received request to update content for ${subject}`);
+  console.log(`Merged content: ${mergedContent}`);
+
+  try {
+    await client.set(cacheKey, mergedContent);
+    console.log('Content updated successfully in Redis');
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving merged content:', error);
+    res.json({ success: false, error: 'Error saving merged content' });
   }
 });
 

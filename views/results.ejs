@@ -65,6 +65,9 @@
       border: 1px solid #ccc;
       z-index: 1000;
     }
+    .threat-content {
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 <body>
@@ -94,7 +97,8 @@
         <textarea id="title" name="title" class="form-control"><%= title %></textarea>
       </div>
       <div class="mb-3">
-        <p><strong>Model:</strong> <%= model %></p>
+        <label for="model" class="form-label">Model:</label>
+        <input type="text" id="model" name="model" class="form-control" value="<%= model %>" readonly>
       </div>
       <div class="mb-3">
         <label for="editedResponse" class="form-label">Response:</label>
@@ -149,7 +153,22 @@
             <div id="compareContent" class="row"></div>
           </div>
           <div class="modal-footer">
+            <button type="button" class="btn btn-primary" onclick="saveMergedContent('<%= subject %>')">Save Merged Content</button>
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Saving Indicator Modal -->
+    <div class="modal fade" id="savingIndicator" tabindex="-1" role="dialog" aria-labelledby="savingIndicatorLabel" aria-hidden="true">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="savingIndicatorLabel">Saving</h5>
+          </div>
+          <div class="modal-body">
+            <p>Saving merged content, please wait...</p>
           </div>
         </div>
       </div>
@@ -429,8 +448,8 @@
       const selectedThreats = Array.from(document.querySelectorAll('#threatsList input:checked'))
         .map(input => input.value);
 
-      if (selectedThreats.length < 2) {
-        alert('Please select at least two threats to compare.');
+      if (selectedThreats.length !== 2) {
+        alert('Please select exactly two threats to compare.');
         return;
       }
 
@@ -449,7 +468,8 @@
           threatDetails.className = 'col-md-6';
           threatDetails.innerHTML = `
             <h5>${threat}</h5>
-            <pre>${threatMatch[1]}</pre>
+            <pre class="threat-content">${threatMatch[1]}</pre>
+            <button class="btn btn-secondary" onclick="mergeThreats(${selectedThreats.indexOf(threat)}, ${1 - selectedThreats.indexOf(threat)})">Merge into Other</button>
           `;
           compareContent.appendChild(threatDetails);
         }
@@ -457,202 +477,142 @@
 
       const compareModal = new bootstrap.Modal(document.getElementById('compareModal'));
       compareModal.show();
-    }
-
-    document.addEventListener('DOMContentLoaded', function () {
-      const textareas = document.querySelectorAll('textarea');
-      textareas.forEach(textarea => {
-        adjustTextareaHeight(textarea); // Adjust height on page load
-        textarea.addEventListener('input', () => adjustTextareaHeight(textarea)); // Adjust height on input
-      });
-
-      $('#editedResponse').markdown({
-        iconlibrary: 'fa',
-        additionalButtons: [
-          [{
-            name: "groupCustom",
-            data: [{
-              name: "cmdReformat",
-              toggle: true, // this param only take effect if you use btn-group
-              title: "Reformat",
-              icon: "fa fa-refresh",
-              callback: function(e) {
-                reformatResponse();
-              }
-            },
-            {
-              name: "cmdFindReplace",
-              toggle: true, // this param only take effect if you use btn-group
-              title: "Find and Replace",
-              icon: "fa fa-search",
-              callback: function(e) {
-                findAndReplace();
-              }
-            },
-            {
-              name: "cmdPreview",
-              toggle: true, // this param only take effect if you use btn-group
-              title: "Preview",
-              icon: "fa fa-eye",
-              callback: function(e) {
-                previewResponse();
-              }
-            }]
-          }]
-        ],
-        autofocus: false,
-        savable: false
-      });
-    });
-
-    function adjustTextareaHeight(textarea) {
-      textarea.style.height = 'auto'; // Reset height to auto to calculate the new height correctly
-      textarea.style.height = textarea.scrollHeight + 'px'; // Set the height to the scroll height
-    }
-
-    function showSummaryDialog(content = '') {
-      const dialog = document.getElementById('summaryDialog');
-      const textarea = document.getElementById('summaryContent');
-      textarea.value = content;
-      adjustTextareaHeight(textarea);
-      dialog.style.display = 'block';
-    }
-
-    function closeSummaryDialog() {
-      const dialog = document.getElementById('summaryDialog');
-      dialog.style.display = 'none';
-    }
-
-    function saveSummary(subject) {
-      const textarea = document.getElementById('summaryContent');
-      const summary = textarea.value;
-
-      fetch('/save-summary', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ subject, summary })
-      }).then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            closeSummaryDialog();
-          } else {
-            alert('Error saving summary');
-          }
-        });
-    }
-
-    function generateSummary(subject) {
-      const loadingIndicator = document.getElementById('loadingIndicator');
-      const newSummaryButton = document.getElementById('newSummaryButton');
-      loadingIndicator.style.display = 'block';
-      newSummaryButton.disabled = true;
-
-      fetch('/generate-summary', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ subject })
-      }).then(response => response.json())
-        .then(data => {
-          loadingIndicator.style.display = 'none';
-          newSummaryButton.disabled = false;
-          if (data.success) {
-            showSummaryDialog(data.summary);
-          } else {
-            alert('Error generating summary');
-          }
-        });
-    }
-
-    function viewSummary(subject) {
-      fetch(`/get-summary?subject=${encodeURIComponent(subject)}`)
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            showSummaryDialog(data.summary);
-          } else {
-            alert('Error retrieving summary');
-          }
-        });
-    }
-
-    function showLoadingTM() {
-      const loadingIndicatorTM = document.getElementById('loadingIndicatorTM');
-      loadingIndicatorTM.style.display = 'block';
-    }
-
-    async function reformatResponse() {
-      try {
-        const response = await fetch('/results-format');
-        const replacements = await response.json();
-
-        const responseTextarea = document.getElementById('editedResponse');
-        let responseContent = responseTextarea.value;
-
-        // Remove any single asterisks
-        responseContent = responseContent.replace(/\*/g, '');
-
-        // Apply the replacements
-        replacements.forEach(({ pattern, replacement }) => {
-          const regex = new RegExp(pattern, 'gmi');
-          responseContent = responseContent.replace(regex, replacement);
-        });
-
-        // Ensure blank lines are maintained between sections
-        responseContent = responseContent.replace(/(\n\n)([A-Za-z].*?):/g, '$1\n$2:');
-
-        responseTextarea.value = responseContent;
-        adjustTextareaHeight(responseTextarea);
-      } catch (error) {
-        console.error('Error fetching format:', error);
+      const threatsModalInstance = bootstrap.Modal.getInstance(document.getElementById('threatsModal'));
+      if (threatsModalInstance) {
+        threatsModalInstance.hide();
       }
     }
 
-    function findAndReplace() {
-      const findReplaceDialog = document.getElementById('findReplaceDialog');
-      findReplaceDialog.style.display = 'block';
+    function mergeThreats(fromIndex, toIndex) {
+      console.log('Merging threats');
+      const compareContent = document.getElementById('compareContent');
+      const threatDetails = compareContent.querySelectorAll('.col-md-6');
+      const fromContent = threatDetails[fromIndex].querySelector('.threat-content').innerText;
+      const toContent = threatDetails[toIndex].querySelector('.threat-content').innerText;
+
+      const mergedContent = mergePlaceholders(fromContent, toContent);
+
+      threatDetails[toIndex].querySelector('.threat-content').innerText = mergedContent;
     }
 
-    function closeFindReplaceDialog() {
-      const findReplaceDialog = document.getElementById('findReplaceDialog');
-      findReplaceDialog.style.display = 'none';
-    }
+    function mergePlaceholders(fromContent, toContent) {
+      console.log('Merging placeholders');
+      const fromSections = parseSections(fromContent);
+      const toSections = parseSections(toContent);
 
-    function executeFindReplace() {
-      const findText = document.getElementById('findText').value;
-      const replaceText = document.getElementById('replaceText').value;
+      const mergedSections = { ...toSections };
 
-      if (findText !== '') {
-        const responseTextarea = document.getElementById('editedResponse');
-        let responseContent = responseTextarea.value;
-
-        const regex = new RegExp(findText, 'g');
-        responseContent = responseContent.replace(regex, replaceText);
-
-        responseTextarea.value = responseContent;
-        adjustTextareaHeight(responseTextarea);
+      for (const [key, value] of Object.entries(fromSections)) {
+        if (mergedSections[key]) {
+          mergedSections[key] += '\n\n' + value;
+        } else {
+          mergedSections[key] = value;
+        }
       }
 
-      closeFindReplaceDialog();
+      return Object.entries(mergedSections).map(([key, value]) => `**${key}:**\n${value}`).join('\n\n');
     }
 
-    function previewResponse() {
+    function parseSections(content) {
+      console.log('Parsing sections');
+      const sections = {};
+      const lines = content.split('\n');
+
+      let currentKey = '';
+
+      for (const line of lines) {
+        const match = line.match(/^\*\*(.*?):\*\*$/);
+        if (match) {
+          currentKey = match[1].trim();
+          sections[currentKey] = '';
+        } else if (currentKey) {
+          sections[currentKey] += line + '\n';
+        }
+      }
+
+      // Remove trailing newlines
+      for (const key in sections) {
+        sections[key] = sections[key].trim();
+      }
+
+      return sections;
+    }
+
+    function saveMergedContent(subject) {
+      console.log('Saving merged content');
+      const savingIndicator = new bootstrap.Modal(document.getElementById('savingIndicator'));
+      savingIndicator.show();
+
       const responseTextarea = document.getElementById('editedResponse');
       const responseContent = responseTextarea.value;
-      const previewContent = document.getElementById('previewContent');
 
-      // Convert markdown to HTML
-      const htmlContent = marked(responseContent);
+      const compareContent = document.getElementById('compareContent');
+      const threatDetails = compareContent.querySelectorAll('.col-md-6 pre');
+      const mergedThreats = Array.from(threatDetails).map(detail => ({
+        title: detail.parentNode.querySelector('h5').innerText,
+        content: detail.innerText
+      }));
 
-      // Display the converted HTML in the modal
-      previewContent.innerHTML = htmlContent;
+      const originalThreats = parseAllThreats(responseContent);
 
-      // Show the modal
-      const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
-      previewModal.show();
+      // Update the original threats with the merged ones
+      mergedThreats.forEach(mergedThreat => {
+        originalThreats[mergedThreat.title] = mergedThreat.content;
+      });
+
+      const updatedContent = Object.entries(originalThreats).map(([title, content]) => `## ${title}\n${content}`).join('\n\n');
+
+      console.log('Updated content:', updatedContent);
+
+      fetch('/update-merged-content', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ subject, mergedContent: updatedContent })
+      }).then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            responseTextarea.value = updatedContent;
+
+            console.log('Merged content saved successfully in textarea.');
+
+            const savingIndicatorInstance = bootstrap.Modal.getInstance(document.getElementById('savingIndicator'));
+            if (savingIndicatorInstance) {
+              savingIndicatorInstance.hide();
+            }
+
+            const compareModalInstance = bootstrap.Modal.getInstance(document.getElementById('compareModal'));
+            if (compareModalInstance) {
+              compareModalInstance.hide();
+            }
+          } else {
+            alert('Error saving merged content');
+            const savingIndicatorInstance = bootstrap.Modal.getInstance(document.getElementById('savingIndicator'));
+            if (savingIndicatorInstance) {
+              savingIndicatorInstance.hide();
+            }
+          }
+        }).catch(error => {
+          console.error('Error saving merged content:', error);
+          alert('Error saving merged content');
+          const savingIndicatorInstance = bootstrap.Modal.getInstance(document.getElementById('savingIndicator'));
+          if (savingIndicatorInstance) {
+            savingIndicatorInstance.hide();
+          }
+        });
+    }
+
+    function parseAllThreats(content) {
+      const threats = {};
+      const threatPattern = /## (.*?)\n([\s\S]*?)(?=\n## |$)/g;
+      let match;
+
+      while ((match = threatPattern.exec(content)) !== null) {
+        threats[match[1]] = match[2].trim();
+      }
+
+      return threats;
     }
   </script>
 </body>
