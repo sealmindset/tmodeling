@@ -1,0 +1,67 @@
+<script>
+  function showThreatsModal() {
+    const responseTextarea = document.getElementById('editedResponse');
+    const responseContent = responseTextarea.value;
+
+    const threatsList = document.getElementById('threatsList');
+    threatsList.innerHTML = '';
+
+    const threatPattern = /## (.*?)\n/g;
+    let match;
+    while ((match = threatPattern.exec(responseContent)) !== null) {
+      const threatItem = document.createElement('li');
+      threatItem.className = 'list-group-item';
+      threatItem.innerHTML = `
+        <input type="checkbox" class="form-check-input me-1" value="${match[1]}" onchange="handleCheckboxChange(this)">
+        ${match[1]}
+      `;
+      threatsList.appendChild(threatItem);
+    }
+
+    const threatsModal = new bootstrap.Modal(document.getElementById('threatsModal'));
+    threatsModal.show();
+  }
+
+  function handleCheckboxChange(checkbox) {
+    const checkedCheckboxes = document.querySelectorAll('#threatsList input[type="checkbox"]:checked');
+    if (checkedCheckboxes.length > 2) {
+      checkbox.checked = false;
+      const comparisonLimitModal = new bootstrap.Modal(document.getElementById('comparisonLimitModal'));
+      comparisonLimitModal.show();
+    }
+  }
+
+  function compareSelectedThreats() {
+    const selectedThreats = Array.from(document.querySelectorAll('#threatsList input:checked'))
+      .map(input => input.value);
+
+    if (selectedThreats.length < 2) {
+      alert('Please select at least two threats to compare.');
+      return;
+    }
+
+    const responseTextarea = document.getElementById('editedResponse');
+    const responseContent = responseTextarea.value;
+
+    const compareContent = document.getElementById('compareContent');
+    compareContent.innerHTML = '';
+
+    selectedThreats.forEach(threat => {
+      const threatPattern = new RegExp(`## ${threat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n([\\s\\S]*?)(?=\\n## |$)`);
+      const threatMatch = responseContent.match(threatPattern);
+
+      if (threatMatch) {
+        const threatDetails = document.createElement('div');
+        threatDetails.className = 'col-md-6';
+        threatDetails.innerHTML = `
+          <h5>${threat}</h5>
+          <pre>${threatMatch[1]}</pre>
+        `;
+        compareContent.appendChild(threatDetails);
+      }
+    });
+
+    const compareModal = new bootstrap.Modal(document.getElementById('compareModal'));
+    compareModal.show();
+  }
+</script>

@@ -1,0 +1,99 @@
+<script>
+  function generateSummary(subject_id) {
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const newSummaryButton = document.getElementById('newSummaryButton');
+    loadingIndicator.style.display = 'block';
+    newSummaryButton.disabled = true;
+
+    console.log('Requesting summary for subject_id:', subject_id); // Add logging
+
+    fetch('/generate-summary', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ subject_id })
+    }).then(response => response.json())
+      .then(data => {
+        loadingIndicator.style.display = 'none';
+        newSummaryButton.disabled = false;
+        if (data.success) {
+          console.log('Summary generated successfully:', data.summary); // Add logging
+          showSummaryDialog(data.summary);
+        } else {
+          console.error('Error generating summary:', data.error); // Add logging
+          alert('Error generating summary');
+        }
+      }).catch(error => {
+        loadingIndicator.style.display = 'none';
+        newSummaryButton.disabled = false;
+        console.error('Fetch error:', error); // Add logging
+        alert('Fetch error: ' + error.message);
+      });
+  }
+
+  function viewSummary(subject_id) {
+    console.log('Viewing summary for subject_id:', subject_id); // Add logging
+
+    fetch(`/get-summary?subject_id=${encodeURIComponent(subject_id)}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          console.log('Summary retrieved successfully:', data.summary); // Add logging
+          showSummaryDialog(data.summary);
+        } else {
+          console.error('Error retrieving summary:', data.error); // Add logging
+          alert('Error retrieving summary');
+        }
+      }).catch(error => {
+        console.error('Fetch error:', error); // Add logging
+        alert('Fetch error: ' + error.message);
+      });
+  }
+
+  function showSummaryDialog(content = '') {
+    const dialog = document.getElementById('summaryDialog');
+    const textarea = document.getElementById('summaryContent');
+    textarea.value = content;
+    adjustTextareaHeight(textarea);
+    dialog.style.display = 'block';
+  }
+
+  function closeSummaryDialog() {
+    const dialog = document.getElementById('summaryDialog');
+    dialog.style.display = 'none';
+  }
+
+  function saveSummary(subject_id) {
+    const textarea = document.getElementById('summaryContent');
+    const summary = textarea.value;
+
+    console.log('Saving summary for subject_id:', subject_id); // Add logging
+    console.log('Summary content:', summary); // Add logging
+
+    fetch('/save-summary', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ subject_id, summary })
+    }).then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          console.log('Summary saved successfully'); // Add logging
+          closeSummaryDialog();
+        } else {
+          console.error('Error saving summary:', data.error); // Add logging
+          alert('Error saving summary');
+        }
+      }).catch(error => {
+        console.error('Fetch error:', error); // Add logging
+        alert('Fetch error: ' + error.message);
+      });
+  }
+
+  function adjustTextareaHeight(textarea) {
+    textarea.style.height = 'auto'; // Reset height to auto to calculate the new height correctly
+    textarea.style.height = textarea.scrollHeight + 'px'; // Set the height to the scroll height
+  }
+</script>

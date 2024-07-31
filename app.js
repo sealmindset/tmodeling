@@ -51,10 +51,12 @@ const promptSummary = fs.readFileSync(promptSummaryPath, 'utf-8');
 const getAllSubjectsWithTitles = async () => {
   try {
     const keys = await client.keys('gpt-response:*');
-    const subjects = keys.map(key => key.replace('gpt-response:', ''));
-    const titlesPromises = subjects.map(subject => client.get(`title:${subject}`));
+    const subject_ids = keys.map(key => key.replace('gpt-response:', ''));
+    const subjectsPromises = subject_ids.map(subject_id => client.get(`subject:${subject_id}`));
+    const titlesPromises = subject_ids.map(subject_id => client.get(`title:${subject_id}`));
+    const subjects = await Promise.all(subjectsPromises);
     const titles = await Promise.all(titlesPromises);
-    return subjects.map((subject, index) => ({ subject, title: titles[index] }));
+    return subject_ids.map((subject_id, index) => ({ subject_id, subject: subjects[index], title: titles[index] }));
   } catch (err) {
     console.error('Error fetching subjects:', err);
     throw err;
@@ -173,36 +175,44 @@ app.get('/search-titles', async (req, res) => {
 });
 
 app.get('/results', async (req, res) => {
-  const { subject } = req.query;
-  let response, title, summary, model;
+  const subject_id = req.query.subject_id;
+  let response, title, summary, model, subject;
+  console.log('/results', subject_id); // Log the subject_id for debugging purposes
+
+  if (!subject_id) {
+    res.send('Error: subject_id is required');
+    return;
+  }
 
   try {
-    response = await getFullResponse(subject);
-    title = await client.get(`title:${subject}`);
-    summary = await getSummary(subject);
-    model = await getModel(subject);
+    response = await getFullResponse(subject_id);
+    subject = await client.get(`subject:${subject_id}`);
+    title = await client.get(`title:${subject_id}`);
+    summary = await getSummary(subject_id);
+    model = await getModel(subject_id);
   } catch (error) {
     console.error('Error fetching response from Redis:', error);
     res.send('Error fetching response from Redis.');
     return;
   }
 
-  res.render('results', { subject: decodeURIComponent(subject), response, title, summary, model });
+  res.render('results', { subject_id, subject, response, title, summary, model });
 });
 
 app.get('/get-summary', async (req, res) => {
-  const { subject } = req.query;
+  const { subject_id } = req.query;
 
   try {
-    const summary = await getSummary(subject);
+    console.log('Fetching summary for subject_id:', subject_id); // Add logging
+    const summary = await client.get(`summary:${subject_id}`);
     if (summary) {
       res.json({ success: true, summary });
     } else {
       res.json({ success: false, error: 'No summary found' });
     }
   } catch (error) {
-    console.error('Error fetching summary from Redis:', error);
-    res.json({ success: false, error: 'Error fetching summary from Redis' });
+    console.error('Error fetching summary:', error);
+    res.json({ success: false, error: 'Error fetching summary' });
   }
 });
 
@@ -296,18 +306,18 @@ app.post('/generate-more', async (req, res) => {
 });
 
 app.post('/generate-summary', async (req, res) => {
-  const { subject } = req.body;
-  const cacheKey = `gpt-response:${subject}`;
-  const summaryKey = `summary:${subject}`;
+  const { subject_id } = req.body;
+  const cacheKey = `gpt-response:${subject_id}`;
+  const summaryKey = `summary:${subject_id}`;
 
   try {
-    console.log('Generating summary for subject:', subject); // Add logging
-    const existingResponse = await getFullResponse(subject);
+    console.log('Generating summary for subject_id:', subject_id); // Add logging
+    const existingResponse = await getFullResponse(subject_id);
     if (!existingResponse) {
       throw new Error('No existing response found for subject');
     }
 
-    const prompt = `${promptSummary}\n\nThreat Model: ${subject}\n\nMitigation Strategies:\n${existingResponse}`;
+    const prompt = `${promptSummary}\n\nThreat Model: ${subject_id}\n\nMitigation Strategies:\n${existingResponse}`;
     console.log('Prompt for summary:', prompt); // Add logging
 
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
@@ -329,6 +339,7 @@ app.post('/generate-summary', async (req, res) => {
     res.json({ success: false, error: 'Error generating summary' });
   }
 });
+
 
 // Route to fetch the template content
 app.get('/template', (req, res) => {
@@ -392,29 +403,30 @@ app.post('/save-template', async (req, res) => {
 
 // Route to save the edited summary content with version control
 app.post('/save-summary', async (req, res) => {
-  const { content } = req.body;
-  const versionedSummaryPath = (version) => path.join(__dirname, `prompt-summary-v${version}.txt`);
+  const { subject_id, summary } = req.body;
+
+  console.log('Saving summary for subject_id:', subject_id); // Add logging
+  console.log('Summary content:', summary); // Add logging
+
+  if (!subject_id || !summary) {
+    console.error('Invalid subject_id or summary content'); // Add logging
+    return res.status(400).json({ success: false, error: 'Invalid subject or content' });
+  }
+
+  const summaryKey = `summary:${subject_id}`;
 
   try {
-    // Determine the next version number
-    let version = 1;
-    while (fs.existsSync(versionedSummaryPath(version))) {
-      version += 1;
-    }
-
-    // Save the current summary with version number
-    await fs.promises.copyFile(promptSummaryPath, versionedSummaryPath(version));
-
-    // Save the new content as the current summary
-    await fs.promises.writeFile(promptSummaryPath, content, 'utf-8');
-
-    res.sendStatus(200);
+    await client.set(summaryKey, summary);
+    console.log('Summary saved successfully'); // Add logging
+    res.json({ success: true });
   } catch (error) {
     console.error('Error saving summary:', error);
-    res.status(500).send('Error saving summary');
+    res.status(500).json({ success: false, error: 'Error saving summary' });
   }
 });
+
 
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
+ 
