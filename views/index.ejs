@@ -144,6 +144,7 @@
           <div class="card">
             <div class="card-body">
               <h5 class="card-title"><%= subjectObj.title %></h5>
+              <p class="card-text">Model: <%= subjectObj.model %></p>
               <a href="/results?subject=<%= encodeURIComponent(subjectObj.subject) %>" class="btn btn-primary">View</a>
               <button class="btn btn-danger" onclick="confirmDelete('<%= subjectObj.subject %>', '<%= subjectObj.title %>')">Delete</button>
             </div>

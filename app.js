@@ -311,7 +311,7 @@ app.post('/generate-summary', async (req, res) => {
     console.log('Prompt for summary:', prompt); // Add logging
 
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model: 'gpt-4',
+      model: 'gpt-4o',
       messages: [{ role: 'user', content: prompt }],
     }, {
       headers: {
@@ -327,37 +327,6 @@ app.post('/generate-summary', async (req, res) => {
   } catch (error) {
     console.error('Error generating summary:', error);
     res.json({ success: false, error: 'Error generating summary' });
-  }
-});
-
-app.post('/save-summary', async (req, res) => {
-  const { subject, summary } = req.body;
-  const summaryKey = `summary:${subject}`;
-
-  try {
-    await client.set(summaryKey, summary);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error saving summary:', error);
-    res.json({ success: false, error: 'Error saving summary' });
-  }
-});
-
-// Update merged content in Redis
-app.post('/update-merged-content', async (req, res) => {
-  const { subject, mergedContent } = req.body;
-  const cacheKey = `gpt-response:${subject}`;
-
-  console.log(`Received request to update content for ${subject}`);
-  console.log(`Merged content: ${mergedContent}`);
-
-  try {
-    await client.set(cacheKey, mergedContent);
-    console.log('Content updated successfully in Redis');
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error saving merged content:', error);
-    res.json({ success: false, error: 'Error saving merged content' });
   }
 });
 
@@ -409,10 +378,10 @@ app.post('/save-template', async (req, res) => {
     }
 
     // Save the current template with version number
-    await fsp.copyFile(promptTemplatePath, versionedTemplatePath(version));
+    await fs.promises.copyFile(promptTemplatePath, versionedTemplatePath(version));
 
     // Save the new content as the current template
-    await fsp.writeFile(promptTemplatePath, content, 'utf-8');
+    await fs.promises.writeFile(promptTemplatePath, content, 'utf-8');
 
     res.sendStatus(200);
   } catch (error) {
@@ -434,10 +403,10 @@ app.post('/save-summary', async (req, res) => {
     }
 
     // Save the current summary with version number
-    await fsp.copyFile(promptSummaryPath, versionedSummaryPath(version));
+    await fs.promises.copyFile(promptSummaryPath, versionedSummaryPath(version));
 
     // Save the new content as the current summary
-    await fsp.writeFile(promptSummaryPath, content, 'utf-8');
+    await fs.promises.writeFile(promptSummaryPath, content, 'utf-8');
 
     res.sendStatus(200);
   } catch (error) {
