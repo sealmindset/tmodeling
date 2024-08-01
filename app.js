@@ -50,20 +50,20 @@ const promptSummary = fs.readFileSync(promptSummaryPath, 'utf-8');
 
 const getAllSubjectsWithTitles = async () => {
   try {
-    const keys = await client.keys('gpt-response:*');
-    const subjects = keys.map(key => key.replace('gpt-response:', ''));
-    const titlesPromises = subjects.map(subject => client.get(`title:${subject}`));
+    const keys = await client.keys('subject:*:title');
+    const subjects = keys.map(key => key.split(':')[1]);
+    const titlesPromises = keys.map(key => client.get(key));
     const titles = await Promise.all(titlesPromises);
-    return subjects.map((subject, index) => ({ subject, title: titles[index] }));
+    return subjects.map((subjectid, index) => ({ subjectid, title: titles[index] }));
   } catch (err) {
     console.error('Error fetching subjects:', err);
     throw err;
   }
 };
 
-const getFullResponse = async (subject) => {
+const getFullResponse = async (subjectid) => {
   try {
-    const cacheKey = `gpt-response:${subject}`;
+    const cacheKey = `subject:${subjectid}:response`;
     const response = await client.get(cacheKey);
     return response;
   } catch (err) {
@@ -72,9 +72,9 @@ const getFullResponse = async (subject) => {
   }
 };
 
-const getSummary = async (subject) => {
+const getSummary = async (subjectid) => {
   try {
-    const summaryKey = `summary:${subject}`;
+    const summaryKey = `subject:${subjectid}:summary`;
     const summary = await client.get(summaryKey);
     return summary;
   } catch (err) {
@@ -83,13 +83,24 @@ const getSummary = async (subject) => {
   }
 };
 
-const getModel = async (subject) => {
+const getModel = async (subjectid) => {
   try {
-    const modelKey = `model:${subject}`;
+    const modelKey = `subject:${subjectid}:model`;
     const model = await client.get(modelKey);
     return model;
   } catch (err) {
     console.error('Error fetching model:', err);
+    throw err;
+  }
+};
+
+const getSubjectText = async (subjectid) => {
+  try {
+    const subjectKey = `subject:${subjectid}:text`;
+    const subjectText = await client.get(subjectKey);
+    return subjectText;
+  } catch (err) {
+    console.error('Error fetching subject text:', err);
     throw err;
   }
 };
@@ -122,18 +133,20 @@ app.get('/', async (req, res) => {
 });
 
 app.post('/ask', async (req, res) => {
-  const subject = req.body.subject;
-  const model = req.body.model || 'gpt-4o';
-  const title = subject;
-  const prompt = promptTemplate.replace('SUBJECT', subject);
-  const cacheKey = `gpt-response:${subject}`;
-  const titleKey = `title:${subject}`;
-  const modelKey = `model:${subject}`;
-
+  const subjectText = req.body.subject;
+  const model = req.body.model || 'gpt-4';
+  
   try {
+    const subjectid = await client.incr('subject_id_counter');
+    const cacheKey = `subject:${subjectid}:response`;
+    const titleKey = `subject:${subjectid}:title`;
+    const modelKey = `subject:${subjectid}:model`;
+    const subjectKey = `subject:${subjectid}:text`;
+    const prompt = promptTemplate.replace('SUBJECT', subjectText);
+
     let cachedResponse = await client.get(cacheKey);
     if (cachedResponse) {
-      res.redirect(`/results?subject=${encodeURIComponent(subject)}`);
+      res.redirect(`/results?subjectid=${encodeURIComponent(subjectid)}`);
     } else {
       const response = await axios.post('https://api.openai.com/v1/chat/completions', {
         model,
@@ -146,9 +159,10 @@ app.post('/ask', async (req, res) => {
 
       const apiResponse = response.data.choices[0].message.content;
       await client.set(cacheKey, apiResponse, { EX: 3600 });
-      await client.set(titleKey, title);
+      await client.set(titleKey, subjectText);
       await client.set(modelKey, model);
-      res.redirect(`/results?subject=${encodeURIComponent(subject)}`);
+      await client.set(subjectKey, subjectText);
+      res.redirect(`/results?subjectid=${encodeURIComponent(subjectid)}`);
     }
   } catch (error) {
     console.error('Error communicating with GPT-4 API:', error);
@@ -173,28 +187,29 @@ app.get('/search-titles', async (req, res) => {
 });
 
 app.get('/results', async (req, res) => {
-  const { subject } = req.query;
-  let response, title, summary, model;
+  const { subjectid } = req.query;
+  let response, title, summary, model, subjectText;
 
   try {
-    response = await getFullResponse(subject);
-    title = await client.get(`title:${subject}`);
-    summary = await getSummary(subject);
-    model = await getModel(subject);
+    response = await getFullResponse(subjectid);
+    title = await client.get(`subject:${subjectid}:title`);
+    summary = await getSummary(subjectid);
+    model = await getModel(subjectid);
+    subjectText = await getSubjectText(subjectid);
   } catch (error) {
     console.error('Error fetching response from Redis:', error);
     res.send('Error fetching response from Redis.');
     return;
   }
 
-  res.render('results', { subject: decodeURIComponent(subject), response, title, summary, model });
+  res.render('results', { subjectid, subjectText, response, title, summary, model });
 });
 
 app.get('/get-summary', async (req, res) => {
-  const { subject } = req.query;
+  const { subjectid } = req.query;
 
   try {
-    const summary = await getSummary(subject);
+    const summary = await getSummary(subjectid);
     if (summary) {
       res.json({ success: true, summary });
     } else {
@@ -207,25 +222,16 @@ app.get('/get-summary', async (req, res) => {
 });
 
 app.post('/edit', async (req, res) => {
-  const { subject, newSubject, editedResponse, title } = req.body;
-  const oldCacheKey = `gpt-response:${subject}`;
-  const oldTitleKey = `title:${subject}`;
-  const newCacheKey = `gpt-response:${newSubject}`;
-  const newTitleKey = `title:${newSubject}`;
+  const { subjectid, subjectText, editedResponse, title } = req.body;
+  const cacheKey = `subject:${subjectid}:response`;
+  const titleKey = `subject:${subjectid}:title`;
+  const subjectKey = `subject:${subjectid}:text`;
 
   try {
-    if (subject !== newSubject) {
-      const oldResponse = await client.get(oldCacheKey);
-      const oldTitle = await client.get(oldTitleKey);
-      await client.set(newCacheKey, editedResponse || oldResponse);
-      await client.set(newTitleKey, title || oldTitle);
-      await client.del(oldCacheKey);
-      await client.del(oldTitleKey);
-    } else {
-      await client.set(oldCacheKey, editedResponse);
-      await client.set(oldTitleKey, title);
-    }
-    res.redirect(`/results?subject=${encodeURIComponent(newSubject)}`);
+    await client.set(cacheKey, editedResponse);
+    await client.set(titleKey, title);
+    await client.set(subjectKey, subjectText);
+    res.redirect(`/results?subjectid=${encodeURIComponent(subjectid)}`);
   } catch (error) {
     console.error('Error updating response:', error);
     res.send('Error updating response.');
@@ -242,19 +248,21 @@ app.post('/delete-subjects', async (req, res) => {
 
   try {
     const deletePromises = Array.isArray(subjectsToDelete)
-      ? subjectsToDelete.map(subject => {
+      ? subjectsToDelete.map(subjectid => {
           return Promise.all([
-            client.del(`gpt-response:${subject}`),
-            client.del(`title:${subject}`),
-            client.del(`summary:${subject}`),
-            client.del(`model:${subject}`)
+            client.del(`subject:${subjectid}:response`),
+            client.del(`subject:${subjectid}:title`),
+            client.del(`subject:${subjectid}:summary`),
+            client.del(`subject:${subjectid}:model`),
+            client.del(`subject:${subjectid}:text`)
           ]);
         })
       : [
-          client.del(`gpt-response:${subjectsToDelete}`),
-          client.del(`title:${subjectsToDelete}`),
-          client.del(`summary:${subjectsToDelete}`),
-          client.del(`model:${subjectsToDelete}`)
+          client.del(`subject:${subjectsToDelete}:response`),
+          client.del(`subject:${subjectsToDelete}:title`),
+          client.del(`subject:${subjectsToDelete}:summary`),
+          client.del(`subject:${subjectsToDelete}:model`),
+          client.del(`subject:${subjectsToDelete}:text`)
         ];
 
     await Promise.all(deletePromises);
@@ -266,15 +274,16 @@ app.post('/delete-subjects', async (req, res) => {
 });
 
 app.post('/generate-more', async (req, res) => {
-  const subject = req.body.subject;
-  const cacheKey = `gpt-response:${subject}`;
+  const { subjectid } = req.body;
+  const cacheKey = `subject:${subjectid}:response`;
 
   try {
-    let existingResponse = await getFullResponse(subject);
+    let existingResponse = await getFullResponse(subjectid);
     if (!existingResponse) existingResponse = '';
 
-    const model = await getModel(subject) || 'gpt-4o';
-    const prompt = promptTemplate.replace('SUBJECT', subject) + "\nContinue generating more results:";
+    const model = await getModel(subjectid) || 'gpt-4';
+    const subjectText = await getSubjectText(subjectid);
+    const prompt = promptTemplate.replace('SUBJECT', subjectText) + "\nContinue generating more results:";
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
       model,
       messages: [{ role: 'user', content: prompt }],
@@ -288,7 +297,7 @@ app.post('/generate-more', async (req, res) => {
     const updatedResponse = `${existingResponse}\n\n${newResponse}`.trim();
 
     await client.set(cacheKey, updatedResponse);
-    res.redirect(`/results?subject=${encodeURIComponent(subject)}`);
+    res.redirect(`/results?subjectid=${encodeURIComponent(subjectid)}`);
   } catch (error) {
     console.error('Error generating more results:', error);
     res.send('Error generating more results.');
@@ -296,18 +305,19 @@ app.post('/generate-more', async (req, res) => {
 });
 
 app.post('/generate-summary', async (req, res) => {
-  const { subject } = req.body;
-  const cacheKey = `gpt-response:${subject}`;
-  const summaryKey = `summary:${subject}`;
+  const { subjectid } = req.body;
+  const cacheKey = `subject:${subjectid}:response`;
+  const summaryKey = `subject:${subjectid}:summary`;
 
   try {
-    console.log('Generating summary for subject:', subject); // Add logging
-    const existingResponse = await getFullResponse(subject);
+    console.log('Generating summary for subjectid:', subjectid); // Add logging
+    const existingResponse = await getFullResponse(subjectid);
     if (!existingResponse) {
       throw new Error('No existing response found for subject');
     }
 
-    const prompt = `${promptSummary}\n\nThreat Model: ${subject}\n\nMitigation Strategies:\n${existingResponse}`;
+    const subjectText = await getSubjectText(subjectid);
+    const prompt = `${promptSummary}\n\nThreat Model: ${subjectText}\n\nMitigation Strategies:\n${existingResponse}`;
     console.log('Prompt for summary:', prompt); // Add logging
 
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
@@ -331,8 +341,8 @@ app.post('/generate-summary', async (req, res) => {
 });
 
 app.post('/save-summary', async (req, res) => {
-  const { subject, summary } = req.body;
-  const summaryKey = `summary:${subject}`;
+  const { subjectid, summary } = req.body;
+  const summaryKey = `subject:${subjectid}:summary`;
 
   try {
     await client.set(summaryKey, summary);
@@ -345,10 +355,10 @@ app.post('/save-summary', async (req, res) => {
 
 // Update merged content in Redis
 app.post('/update-merged-content', async (req, res) => {
-  const { subject, mergedContent } = req.body;
-  const cacheKey = `gpt-response:${subject}`;
+  const { subjectid, mergedContent } = req.body;
+  const cacheKey = `subject:${subjectid}:response`;
 
-  console.log(`Received request to update content for ${subject}`);
+  console.log(`Received request to update content for ${subjectid}`);
   console.log(`Merged content: ${mergedContent}`);
 
   try {
@@ -409,10 +419,10 @@ app.post('/save-template', async (req, res) => {
     }
 
     // Save the current template with version number
-    await fsp.copyFile(promptTemplatePath, versionedTemplatePath(version));
+    await fs.promises.copyFile(promptTemplatePath, versionedTemplatePath(version));
 
     // Save the new content as the current template
-    await fsp.writeFile(promptTemplatePath, content, 'utf-8');
+    await fs.promises.writeFile(promptTemplatePath, content, 'utf-8');
 
     res.sendStatus(200);
   } catch (error) {
@@ -434,10 +444,10 @@ app.post('/save-summary', async (req, res) => {
     }
 
     // Save the current summary with version number
-    await fsp.copyFile(promptSummaryPath, versionedSummaryPath(version));
+    await fs.promises.copyFile(promptSummaryPath, versionedSummaryPath(version));
 
     // Save the new content as the current summary
-    await fsp.writeFile(promptSummaryPath, content, 'utf-8');
+    await fs.promises.writeFile(promptSummaryPath, content, 'utf-8');
 
     res.sendStatus(200);
   } catch (error) {

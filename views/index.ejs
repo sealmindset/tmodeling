@@ -144,8 +144,8 @@
           <div class="card">
             <div class="card-body">
               <h5 class="card-title"><%= subjectObj.title %></h5>
-              <a href="/results?subject=<%= encodeURIComponent(subjectObj.subject) %>" class="btn btn-primary">View</a>
-              <button class="btn btn-danger" onclick="confirmDelete('<%= subjectObj.subject %>', '<%= subjectObj.title %>')">Delete</button>
+              <a href="/results?subjectid=<%= encodeURIComponent(subjectObj.subjectid) %>" class="btn btn-primary">View</a>
+              <button class="btn btn-danger" onclick="confirmDelete('<%= subjectObj.subjectid %>', '<%= subjectObj.title %>')">Delete</button>
             </div>
           </div>
         </div>
@@ -208,7 +208,7 @@
               item.classList.add('autocomplete-suggestion');
               item.innerText = result.title;
               item.addEventListener('click', () => {
-                window.location.href = `/results?subject=${encodeURIComponent(result.subject)}`;
+                window.location.href = `/results?subjectid=${encodeURIComponent(result.subjectid)}`;
               });
               list.appendChild(item);
             });
@@ -218,12 +218,12 @@
       }
     });
 
-    function confirmDelete(subject, title) {
+    function confirmDelete(subjectid, title) {
       const deleteMessage = `Are you sure you want to delete this Threat Model: "${title}"?`;
       document.getElementById('deleteMessage').innerText = deleteMessage;
       const confirmDeleteButton = document.getElementById('confirmDeleteButton');
       confirmDeleteButton.onclick = () => {
-        deleteSubject(subject);
+        deleteSubject(subjectid);
         const deleteModal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
         deleteModal.hide();
       };
@@ -231,13 +231,13 @@
       deleteModal.show();
     }
 
-    function deleteSubject(subject) {
+    function deleteSubject(subjectid) {
       fetch('/delete-subjects', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ subjectsToDelete: subject })
+        body: JSON.stringify({ subjectsToDelete: subjectid })
       }).then(() => {
         location.reload();
       });

@@ -31,7 +31,7 @@
       width: 100%;
       box-sizing: border-box;
     }
-    textarea#newSubject, textarea#title, textarea#editedResponse {
+    textarea#subject, textarea#title, textarea#editedResponse {
       height: auto;
     }
     #summaryDialog {
@@ -75,22 +75,22 @@
     <nav class="nav flex-column">
       <a class="nav-link" href="/"><i class="fa fa-home"></i> Home</a>
       <form action="/generate-more" method="post" class="nav-link" onsubmit="showLoadingTM()">
-        <input type="hidden" name="subject" value="<%= subject %>">
+        <input type="hidden" name="subjectid" value="<%= subjectid %>">
         <button type="submit" class="btn btn-link p-0"><i class="fa fa-refresh"></i> Generate TM</button>
       </form>
-      <button id="newSummaryButton" class="nav-link btn btn-link p-0" onclick="generateSummary('<%= subject %>')"><i class="fa fa-file"></i> New Summary</button>
+      <button id="newSummaryButton" class="nav-link btn btn-link p-0" onclick="generateSummary('<%= subjectid %>')"><i class="fa fa-file"></i> New Summary</button>
       <% if (summary) { %>
-        <button class="nav-link btn btn-link p-0" onclick="viewSummary('<%= subject %>')"><i class="fa fa-eye"></i> View Summary</button>
+        <button class="nav-link btn btn-link p-0" onclick="viewSummary('<%= subjectid %>')"><i class="fa fa-eye"></i> View Summary</button>
       <% } %>
     </nav>
   </div>
 
   <div class="main-content">
     <form action="/edit" method="post" class="mb-4">
-      <input type="hidden" name="subject" value="<%= subject %>">
+      <input type="hidden" name="subjectid" value="<%= subjectid %>">
       <div class="mb-3">
-        <label for="newSubject" class="form-label">Subject:</label>
-        <textarea id="newSubject" name="newSubject" class="form-control"><%= subject %></textarea>
+        <label for="subject" class="form-label">Subject:</label>
+        <textarea id="subject" name="subjectText" class="form-control"><%= subjectText %></textarea>
       </div>
       <div class="mb-3">
         <label for="title" class="form-label">Title:</label>
@@ -113,7 +113,7 @@
       <textarea id="summaryContent" class="form-control"></textarea>
       <br>
       <button class="btn btn-secondary" onclick="closeSummaryDialog()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveSummary('<%= subject %>')">Save</button>
+      <button class="btn btn-primary" onclick="saveSummary('<%= subjectid %>')">Save</button>
     </div>
     <div id="loadingIndicator">
       <p>Generating report, please wait...</p>
@@ -153,7 +153,7 @@
             <div id="compareContent" class="row"></div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-primary" onclick="saveMergedContent('<%= subject %>')">Save Merged Content</button>
+            <button type="button" class="btn btn-primary" onclick="saveMergedContent('<%= subjectid %>')">Save Merged Content</button>
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
           </div>
         </div>
@@ -289,7 +289,7 @@
       dialog.style.display = 'none';
     }
 
-    function saveSummary(subject) {
+    function saveSummary(subjectid) {
       const textarea = document.getElementById('summaryContent');
       const summary = textarea.value;
 
@@ -298,7 +298,7 @@
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ subject, summary })
+        body: JSON.stringify({ subjectid, summary })
       }).then(response => response.json())
         .then(data => {
           if (data.success) {
@@ -309,7 +309,7 @@
         });
     }
 
-    function generateSummary(subject) {
+    function generateSummary(subjectid) {
       const loadingIndicator = document.getElementById('loadingIndicator');
       const newSummaryButton = document.getElementById('newSummaryButton');
       loadingIndicator.style.display = 'block';
@@ -320,7 +320,7 @@
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ subject })
+        body: JSON.stringify({ subjectid })
       }).then(response => response.json())
         .then(data => {
           loadingIndicator.style.display = 'none';
@@ -333,8 +333,8 @@
         });
     }
 
-    function viewSummary(subject) {
-      fetch(`/get-summary?subject=${encodeURIComponent(subject)}`)
+    function viewSummary(subjectid) {
+      fetch(`/get-summary?subjectid=${encodeURIComponent(subjectid)}`)
         .then(response => response.json())
         .then(data => {
           if (data.success) {
@@ -484,7 +484,6 @@
     }
 
     function mergeThreats(fromIndex, toIndex) {
-      console.log('Merging threats');
       const compareContent = document.getElementById('compareContent');
       const threatDetails = compareContent.querySelectorAll('.col-md-6');
       const fromContent = threatDetails[fromIndex].querySelector('.threat-content').innerText;
@@ -496,7 +495,6 @@
     }
 
     function mergePlaceholders(fromContent, toContent) {
-      console.log('Merging placeholders');
       const fromSections = parseSections(fromContent);
       const toSections = parseSections(toContent);
 
@@ -514,7 +512,6 @@
     }
 
     function parseSections(content) {
-      console.log('Parsing sections');
       const sections = {};
       const lines = content.split('\n');
 
@@ -538,8 +535,7 @@
       return sections;
     }
 
-    function saveMergedContent(subject) {
-      console.log('Saving merged content');
+    function saveMergedContent(subjectid) {
       const savingIndicator = new bootstrap.Modal(document.getElementById('savingIndicator'));
       savingIndicator.show();
 
@@ -562,20 +558,16 @@
 
       const updatedContent = Object.entries(originalThreats).map(([title, content]) => `## ${title}\n${content}`).join('\n\n');
 
-      console.log('Updated content:', updatedContent);
-
       fetch('/update-merged-content', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ subject, mergedContent: updatedContent })
+        body: JSON.stringify({ subjectid, mergedContent: updatedContent })
       }).then(response => response.json())
         .then(data => {
           if (data.success) {
             responseTextarea.value = updatedContent;
-
-            console.log('Merged content saved successfully in textarea.');
 
             const savingIndicatorInstance = bootstrap.Modal.getInstance(document.getElementById('savingIndicator'));
             if (savingIndicatorInstance) {
