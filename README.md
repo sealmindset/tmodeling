@@ -51,10 +51,5 @@ node app.js
 ```
 
 ## To Do
-- Pagination of the results
-- Edit the prompt from the UI
-- Individually removing threats
-- Editing the threats
-- Download the threat subjects in different file formats
 - API Endpoint to make it consumable without needing an OpenAI account
 - Improve the user interface
