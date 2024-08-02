@@ -113,7 +113,7 @@
       <textarea id="summaryContent" class="form-control"></textarea>
       <br>
       <button class="btn btn-secondary" onclick="closeSummaryDialog()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveSummary('<%= subjectid %>')">Save</button>
+      <button class="btn btn-primary" onclick="saveModifiedSummary('<%= subjectid %>')">Save</button>
     </div>
     <div id="loadingIndicator">
       <p>Generating report, please wait...</p>
@@ -219,6 +219,25 @@
     </div>
   </div>
 
+ <!-- a modal for displaying error messages --> 
+  <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="errorModalLabel">Error</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="errorMessage">
+          <!-- Error message will be inserted here -->
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-markdown/2.10.0/js/bootstrap-markdown.min.js"></script>
@@ -289,11 +308,11 @@
       dialog.style.display = 'none';
     }
 
-    function saveSummary(subjectid) {
+    function saveModifiedSummary(subjectid) {
       const textarea = document.getElementById('summaryContent');
       const summary = textarea.value;
 
-      fetch('/save-summary', {
+      fetch('/save-modified-summary', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -304,7 +323,7 @@
           if (data.success) {
             closeSummaryDialog();
           } else {
-            alert('Error saving summary');
+            alert('Error saving modified summary');
           }
         });
     }
@@ -328,9 +347,21 @@
           if (data.success) {
             showSummaryDialog(data.summary);
           } else {
-            alert('Error generating summary');
+            alert(`Error: ${data.error}`);
           }
+        }).catch(error => {
+          loadingIndicator.style.display = 'none';
+          newSummaryButton.disabled = false;
+          alert(`Unexpected error: ${error.message}`);
         });
+    }
+
+
+    function showErrorModal(status, message) {
+      const errorMessage = document.getElementById('errorMessage');
+      errorMessage.innerText = `Error ${status}: ${message}`;
+      const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+      errorModal.show();
     }
 
     function viewSummary(subjectid) {

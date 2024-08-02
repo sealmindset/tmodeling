@@ -310,48 +310,84 @@ app.post('/generate-summary', async (req, res) => {
   const summaryKey = `subject:${subjectid}:summary`;
 
   try {
-    console.log('Generating summary for subjectid:', subjectid); // Add logging
+    console.log('Generating summary for subjectid:', subjectid);
     const existingResponse = await getFullResponse(subjectid);
     if (!existingResponse) {
       throw new Error('No existing response found for subject');
     }
 
     const subjectText = await getSubjectText(subjectid);
-    const prompt = `${promptSummary}\n\nThreat Model: ${subjectText}\n\nMitigation Strategies:\n${existingResponse}`;
-    console.log('Prompt for summary:', prompt); // Add logging
+    const model = await getModel(subjectid);  // Retrieve the model dynamically
+
+    // Read the prompt-summary.txt file each time the endpoint is called
+    const promptSummary = fs.readFileSync(promptSummaryPath, 'utf-8');
+    const prompt = `${promptSummary} ${subjectText} ${existingResponse}`;
+
+    console.log('Prompt for summary:', prompt);
 
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model: 'gpt-4',
+      model,
       messages: [{ role: 'user', content: prompt }],
     }, {
       headers: {
         'Authorization': `Bearer ${openaiApiKey}`,
       },
+      timeout: 60000, // 60 seconds timeout
     });
 
     const summary = response.data.choices[0].message.content;
-    console.log('Generated summary:', summary); // Add logging
+    console.log('Generated summary:', summary);
 
     await client.set(summaryKey, summary);
     res.json({ success: true, summary });
   } catch (error) {
-    console.error('Error generating summary:', error);
-    res.json({ success: false, error: 'Error generating summary' });
+    console.error('Error generating summary:', error.message);
+    console.error('Error stack trace:', error.stack);
+
+    if (error.response) {
+      if (error.response.status === 429) {
+        res.status(429).json({ success: false, error: 'Too Many Requests. Please try again later.' });
+      } else {
+        res.status(error.response.status).json({ success: false, error: error.response.statusText });
+      }
+    } else if (error.code === 'ECONNRESET') {
+      res.status(500).json({ success: false, error: 'Connection was reset. Please try again.' });
+    } else if (error.code === 'ETIMEDOUT') {
+      res.status(500).json({ success: false, error: 'Request timed out. Please try again.' });
+    } else if (error.message.includes('timeout')) {
+      res.status(500).json({ success: false, error: 'Request timed out. Please try again.' });
+    } else {
+      res.status(500).json({ success: false, error: 'Internal Server Error' });
+    }
   }
 });
 
+
+// Route to save the edited summary content with version control
 app.post('/save-summary', async (req, res) => {
-  const { subjectid, summary } = req.body;
-  const summaryKey = `subject:${subjectid}:summary`;
+  const { content } = req.body;
+  const versionedSummaryPath = (version) => path.join(__dirname, `prompt-summary-v${version}.txt`);
 
   try {
-    await client.set(summaryKey, summary);
-    res.json({ success: true });
+    // Determine the next version number
+    let version = 1;
+    while (fs.existsSync(versionedSummaryPath(version))) {
+      version += 1;
+    }
+
+    // Save the current summary with version number
+    await fs.promises.copyFile(promptSummaryPath, versionedSummaryPath(version));
+
+    // Save the new content as the current summary
+    await fs.promises.writeFile(promptSummaryPath, content, 'utf-8');
+
+    res.sendStatus(200);
   } catch (error) {
     console.error('Error saving summary:', error);
-    res.json({ success: false, error: 'Error saving summary' });
+    res.status(500).send('Error saving summary');
   }
 });
+
 
 // Update merged content in Redis
 app.post('/update-merged-content', async (req, res) => {
@@ -453,6 +489,20 @@ app.post('/save-summary', async (req, res) => {
   } catch (error) {
     console.error('Error saving summary:', error);
     res.status(500).send('Error saving summary');
+  }
+});
+
+// Route to save the modified summary content for each subject
+app.post('/save-modified-summary', async (req, res) => {
+  const { subjectid, summary } = req.body;
+  const summaryKey = `subject:${subjectid}:summary`;
+
+  try {
+    await client.set(summaryKey, summary);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving modified summary:', error);
+    res.json({ success: false, error: 'Error saving modified summary' });
   }
 });
 
