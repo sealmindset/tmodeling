@@ -48,9 +48,9 @@
     }
     #summaryDialog textarea {
       width: 100%;
-      height: 400px; /* Set initial height to 400px */
-      min-height: 400px; /* Ensure minimum height is 400px */
-      max-height: 800px; /* Set maximum height to 800px */
+      height: 840px; /* Set initial height to 840px */
+      min-height: 750px; /* Ensure minimum height is 750px */
+      max-height: 6000px; /* Set maximum height to 6000px */
       resize: vertical;
       overflow-y: scroll; /* Make it scrollable */
     }
@@ -67,6 +67,11 @@
     }
     .threat-content {
       white-space: pre-wrap;
+    }
+    .md-editor .md-input {
+      height: auto !important; /* Ensure height adjusts automatically */
+      max-height: 6000px; /* Set max height for the editor */
+      overflow-y: auto; /* Allow vertical scrolling */
     }
   </style>
 </head>
@@ -102,7 +107,13 @@
       </div>
       <div class="mb-3">
         <label for="editedResponse" class="form-label">Response:</label>
-        <textarea name="editedResponse" id="editedResponse" rows="12" class="form-control"><%= response %></textarea>
+        <textarea name="editedResponse" id="editedResponse" rows="12" class="form-control" style="min-height: 840px;"><%= response %></textarea>
+      </div>
+      <div class="mb-3 d-flex align-items-center">
+        <label for="heightInput" class="form-label me-2">Height:</label>
+        <input type="number" id="heightInput" class="form-control me-2" style="width: 80px;" value="840">
+        <input type="range" id="heightSlider" class="form-range" min="750" max="6000" value="840">
+        <span id="heightValue" class="ms-2">840px</span>
       </div>
       <button type="submit" class="btn btn-primary">Save</button>
       <button type="button" class="btn btn-secondary" onclick="showThreatsModal()">View Threats</button>
@@ -189,22 +200,6 @@
     </div>
   </div>
 
-  <!-- Preview Modal -->
-  <div class="modal fade" id="previewModal" tabindex="-1" role="dialog" aria-labelledby="previewModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="previewModalLabel">Preview</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body" id="previewContent"></div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-markdown/2.10.0/js/bootstrap-markdown.min.js"></script>
@@ -242,24 +237,52 @@
               }
             },
             {
-              name: "cmdPreview",
+              name: "cmdCopy",
               toggle: true, // this param only take effect if you use btn-group
-              title: "Preview",
-              icon: "fa fa-eye",
+              title: "Copy TM",
+              icon: "fa fa-copy",
               callback: function(e) {
-                previewResponse();
+                copyToClipboard('editedResponse');
               }
             }]
           }]
         ],
         autofocus: false,
-        savable: false
+        savable: false,
+        hiddenButtons: ['cmdPreview'], // Hides the built-in preview button
+      });
+
+      const heightInput = document.getElementById('heightInput');
+      const heightSlider = document.getElementById('heightSlider');
+      const heightValue = document.getElementById('heightValue');
+      const editedResponse = document.getElementById('editedResponse');
+
+      // Set initial height
+      editedResponse.style.minHeight = '840px';
+
+      heightInput.addEventListener('input', function () {
+        const newHeight = parseInt(heightInput.value, 10);
+        heightSlider.value = newHeight;
+        editedResponse.style.minHeight = `${newHeight}px`;
+        heightValue.textContent = `${newHeight}px`;
+      });
+
+      heightSlider.addEventListener('input', function () {
+        const newHeight = parseInt(heightSlider.value, 10);
+        heightInput.value = newHeight;
+        editedResponse.style.minHeight = `${newHeight}px`;
+        heightValue.textContent = `${newHeight}px`;
       });
     });
 
     function adjustTextareaHeight(textarea) {
       textarea.style.height = 'auto'; // Reset height to auto to calculate the new height correctly
-      textarea.style.height = textarea.scrollHeight + 'px'; // Set the height to the scroll height
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 800)}px`; // Set the height to the scroll height
+      if (textarea.scrollHeight > 800) {
+        textarea.style.overflowY = 'scroll'; // Enable vertical scrolling if height exceeds 800px
+      } else {
+        textarea.style.overflowY = 'hidden'; // Disable vertical scrolling if height is less than 800px
+      }
     }
 
     function showSummaryDialog(content = '') {
@@ -391,22 +414,6 @@
       closeFindReplaceDialog();
     }
 
-    function previewResponse() {
-      const responseTextarea = document.getElementById('editedResponse');
-      const responseContent = responseTextarea.value;
-      const previewContent = document.getElementById('previewContent');
-
-      // Convert markdown to HTML
-      const htmlContent = marked(responseContent);
-
-      // Display the converted HTML in the modal
-      previewContent.innerHTML = htmlContent;
-
-      // Show the modal
-      const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
-      previewModal.show();
-    }
-
     function showThreatsModal() {
       const responseTextarea = document.getElementById('editedResponse');
       const responseContent = responseTextarea.value;
@@ -516,6 +523,13 @@
       }
 
       return threats;
+    }
+
+    function copyToClipboard(elementId) {
+      const textarea = document.getElementById(elementId);
+      textarea.select();
+      document.execCommand('copy');
+      alert('Copied to clipboard!');
     }
   </script>
 </body>

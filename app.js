@@ -388,6 +388,19 @@ app.post('/save-summary', async (req, res) => {
   }
 });
 
+// Route to save the modified summary content for each subject
+app.post('/save-modified-summary', async (req, res) => {
+  const { subjectid, summary } = req.body;
+  const summaryKey = `subject:${subjectid}:summary`;
+
+  try {
+    await client.set(summaryKey, summary);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving modified summary:', error);
+    res.json({ success: false, error: 'Error saving modified summary' });
+  }
+});
 
 // Update merged content in Redis
 app.post('/update-merged-content', async (req, res) => {
@@ -464,45 +477,6 @@ app.post('/save-template', async (req, res) => {
   } catch (error) {
     console.error('Error saving template:', error);
     res.status(500).send('Error saving template');
-  }
-});
-
-// Route to save the edited summary content with version control
-app.post('/save-summary', async (req, res) => {
-  const { content } = req.body;
-  const versionedSummaryPath = (version) => path.join(__dirname, `prompt-summary-v${version}.txt`);
-
-  try {
-    // Determine the next version number
-    let version = 1;
-    while (fs.existsSync(versionedSummaryPath(version))) {
-      version += 1;
-    }
-
-    // Save the current summary with version number
-    await fs.promises.copyFile(promptSummaryPath, versionedSummaryPath(version));
-
-    // Save the new content as the current summary
-    await fs.promises.writeFile(promptSummaryPath, content, 'utf-8');
-
-    res.sendStatus(200);
-  } catch (error) {
-    console.error('Error saving summary:', error);
-    res.status(500).send('Error saving summary');
-  }
-});
-
-// Route to save the modified summary content for each subject
-app.post('/save-modified-summary', async (req, res) => {
-  const { subjectid, summary } = req.body;
-  const summaryKey = `subject:${subjectid}:summary`;
-
-  try {
-    await client.set(summaryKey, summary);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error saving modified summary:', error);
-    res.json({ success: false, error: 'Error saving modified summary' });
   }
 });
 
