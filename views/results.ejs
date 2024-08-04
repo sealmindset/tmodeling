@@ -18,9 +18,13 @@
       background-color: #f8f9fa;
       padding-top: 20px;
     }
-    .navbar-vertical .nav-link {
+    .navbar-vertical .nav-link, .navbar-vertical .nav-label {
       font-size: 18px;
       margin-bottom: 10px;
+    }
+    .navbar-vertical .nav-label {
+      font-weight: bold;
+      cursor: default;
     }
     .main-content {
       margin-left: 220px; /* Adjust based on the width of the navbar */
@@ -89,10 +93,12 @@
         <input type="hidden" name="subjectid" value="<%= subjectid %>">
         <button type="submit" class="btn btn-link p-0"><i class="fa fa-refresh"></i> Generate TM</button>
       </form>
+      <span class="nav-label">Summary</span>
       <button id="newSummaryButton" class="nav-link btn btn-link p-0" onclick="generateSummary('<%= subjectid %>')"><i class="fa fa-file"></i> New Summary</button>
       <% if (summary) { %>
         <button class="nav-link btn btn-link p-0" onclick="viewSummary('<%= subjectid %>')"><i class="fa fa-eye"></i> View Summary</button>
       <% } %>
+      <span class="nav-label">Common Wording</span>
       <button class="nav-link btn btn-link p-0" onclick="showRweModal('Add')"><i class="fa fa-plus"></i> New RWE</button>
       <button class="nav-link btn btn-link p-0" onclick="listRwes()"><i class="fa fa-edit"></i> Update RWE</button>
       <button class="nav-link btn btn-link p-0" onclick="applyRwe()"><i class="fa fa-check"></i> Apply RWE</button>
@@ -132,7 +138,7 @@
       <h2>Report</h2>
       <textarea id="summaryContent" class="form-control"></textarea>
       <br>
-      <button class="btn btn-secondary" onclick="closeSummaryDialog()">Cancel</button>
+      <button class="btn btn-secondary" onclick="closeSummaryDialog()">Close</button>
       <button class="btn btn-primary" onclick="saveSummary('<%= subjectid %>')">Save</button>
     </div>
     <div id="loadingIndicator">
@@ -421,24 +427,25 @@
     }
 
     function saveSummary(subjectid) {
-      const textarea = document.getElementById('summaryContent');
-      const summary = textarea.value;
+  const textarea = document.getElementById('summaryContent');
+  const summary = textarea.value;
 
-      fetch('/save-summary', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ subjectid, summary })
-      }).then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            closeSummaryDialog();
-          } else {
-            alert('Error saving summary');
-          }
-        });
-    }
+  fetch('/save-modified-summary', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ subjectid, summary })
+  }).then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        closeSummaryDialog();
+        alert('Summary saved successfully!');
+      } else {
+        alert('Error saving summary');
+      }
+    });
+}
 
     function generateSummary(subjectid) {
       const loadingIndicator = document.getElementById('loadingIndicator');
