@@ -73,6 +73,12 @@
       max-height: 6000px; /* Set max height for the editor */
       overflow-y: auto; /* Allow vertical scrolling */
     }
+    .md-editor .md-preview { /* Hide the preview button */
+      display: none !important;
+    }
+    .threat-markdown {
+      height: 400px !important; /* Set height to 400px */
+    }
   </style>
 </head>
 <body>
@@ -87,6 +93,9 @@
       <% if (summary) { %>
         <button class="nav-link btn btn-link p-0" onclick="viewSummary('<%= subjectid %>')"><i class="fa fa-eye"></i> View Summary</button>
       <% } %>
+      <button class="nav-link btn btn-link p-0" onclick="showRweModal('Add')"><i class="fa fa-plus"></i> New RWE</button>
+      <button class="nav-link btn btn-link p-0" onclick="listRwes()"><i class="fa fa-edit"></i> Update RWE</button>
+      <button class="nav-link btn btn-link p-0" onclick="applyRwe()"><i class="fa fa-check"></i> Apply RWE</button>
     </nav>
   </div>
 
@@ -164,14 +173,86 @@
             <div id="compareContent" class="row"></div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-primary" onclick="saveThreatsContent('<%= subjectid %>')">Save Changes</button>
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Find and Replace Dialog -->
+    <!-- Add RWE Modal -->
+    <div class="modal fade" id="addRweModal" tabindex="-1" aria-labelledby="addRweModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="addRweModalLabel">Add RWE</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="addRweForm">
+              <div class="mb-3">
+                <label for="addRweThreat" class="form-label">Threat</label>
+                <textarea class="form-control" id="addRweThreat" name="threat" required></textarea>
+              </div>
+              <div class="mb-3">
+                <label for="addRweDescription" class="form-label">Description</label>
+                <textarea class="form-control" id="addRweDescription" name="description" required></textarea>
+              </div>
+              <div class="mb-3">
+                <label for="addRweReference" class="form-label">Reference</label>
+                <textarea class="form-control" id="addRweReference" name="reference" required></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary">Save</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- List of RWE Modal -->
+    <div class="modal fade" id="listRweModal" tabindex="-1" aria-labelledby="listRweModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="listRweModalLabel">List of RWE</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <ul id="rweList" class="list-group"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modify RWE Modal -->
+    <div class="modal fade" id="modifyRweModal" tabindex="-1" aria-labelledby="modifyRweModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modifyRweModalLabel">Modify RWE</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="modifyRweForm">
+              <div class="mb-3">
+                <label for="modifyRweThreat" class="form-label">Threat</label>
+                <textarea class="form-control" id="modifyRweThreat" name="threat" required></textarea>
+              </div>
+              <div class="mb-3">
+                <label for="modifyRweDescription" class="form-label">Description</label>
+                <textarea class="form-control" id="modifyRweDescription" name="description" required></textarea>
+              </div>
+              <div class="mb-3">
+                <label for="modifyRweReference" class="form-label">Reference</label>
+                <textarea class="form-control" id="modifyRweReference" name="reference" required></textarea>
+              </div>
+              <button type="button" class="btn btn-danger" onclick="confirmDeleteRwe()">Delete</button>
+              <button type="submit" class="btn btn-primary">Update</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="findReplaceDialog" class="modal" tabindex="-1" role="dialog">
       <div class="modal-dialog" role="document">
         <div class="modal-content">
@@ -250,6 +331,14 @@
         autofocus: false,
         savable: false,
         hiddenButtons: ['cmdPreview'], // Hides the built-in preview button
+        onPreview: function() {
+          return false; // Disables the preview functionality
+        }
+      });
+
+      // Hide the preview button with the magnifying glass icon
+      document.querySelectorAll('.btn[data-handler="bootstrap-markdown-cmdPreview"]').forEach(button => {
+        button.style.display = 'none';
       });
 
       const heightInput = document.getElementById('heightInput');
@@ -272,6 +361,39 @@
         heightInput.value = newHeight;
         editedResponse.style.minHeight = `${newHeight}px`;
         heightValue.textContent = `${newHeight}px`;
+      });
+
+      $('#addRweForm').on('submit', function (event) {
+        event.preventDefault();
+        const threat = $('#addRweThreat').val();
+        const description = $('#addRweDescription').val();
+        const reference = $('#addRweReference').val();
+
+        $.post('/add-rwe', { threat, description, reference }, function (data) {
+          if (data.success) {
+            alert('RWE added successfully!');
+            $('#addRweModal').modal('hide');
+          } else {
+            alert('Error adding RWE.');
+          }
+        });
+      });
+
+      $('#modifyRweForm').on('submit', function (event) {
+        event.preventDefault();
+        const rweid = $('#modifyRweForm').data('rweid');
+        const threat = $('#modifyRweThreat').val();
+        const description = $('#modifyRweDescription').val();
+        const reference = $('#modifyRweReference').val();
+
+        $.post(`/update-rwe/${rweid}`, { threat, description, reference }, function (data) {
+          if (data.success) {
+            alert('RWE updated successfully!');
+            $('#modifyRweModal').modal('hide');
+          } else {
+            alert('Error updating RWE.');
+          }
+        });
       });
     });
 
@@ -419,7 +541,7 @@
       const responseContent = responseTextarea.value;
 
       const threatsList = document.getElementById('threatsList');
-      threatsList.innerHTML = '';
+      threatsList.innerHTML = ''; // Clear existing list items
 
       const threatPattern = /## (.*?)\n/g;
       let match;
@@ -427,7 +549,7 @@
         const threatItem = document.createElement('li');
         threatItem.className = 'list-group-item';
         threatItem.innerHTML = `
-          <input type="checkbox" class="form-check-input me-1" value="${match[1]}">
+          <input type="checkbox" class="form-check-input me-1" value="${match.index}-${match[1]}">
           ${match[1]}
         `;
         threatsList.appendChild(threatItem);
@@ -439,7 +561,7 @@
 
     function compareSelectedThreats() {
       const selectedThreats = Array.from(document.querySelectorAll('#threatsList input:checked'))
-        .map(input => input.value);
+        .map(input => input.value.split('-').map((item, index) => index === 0 ? parseInt(item, 10) : item));
 
       if (selectedThreats.length !== 2) {
         alert('Please select exactly two threats to compare.');
@@ -450,19 +572,19 @@
       const responseContent = responseTextarea.value;
 
       const compareContent = document.getElementById('compareContent');
-      compareContent.innerHTML = '';
+      compareContent.innerHTML = ''; // Clear existing compare content
 
-      selectedThreats.forEach(threat => {
-        const threatPattern = new RegExp(`## ${threat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n([\\s\\S]*?)(?=\\n## |$)`);
-        const threatMatch = responseContent.match(threatPattern);
+      selectedThreats.forEach((threat, index) => {
+        const [position, title] = threat;
+        const threatPattern = new RegExp(`## ${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n([\\s\\S]*?)(?=\\n## |$)`);
+        const threatMatch = responseContent.substring(position).match(threatPattern);
 
         if (threatMatch) {
           const threatDetails = document.createElement('div');
           threatDetails.className = 'col-md-6';
           threatDetails.innerHTML = `
-            <h5>${threat}</h5>
-            <textarea class="form-control threat-content">${threatMatch[1]}</textarea>
-            <button class="btn btn-danger mt-2" onclick="removeThreat('${threat}')">Remove Threat</button>
+            <h5>${title}</h5>
+            <textarea class="form-control threat-content threat-markdown" data-position="${position}" data-title="${title}">${threatMatch[1]}</textarea>
           `;
           compareContent.appendChild(threatDetails);
         }
@@ -474,43 +596,45 @@
       if (threatsModalInstance) {
         threatsModalInstance.hide();
       }
-    }
 
-    function removeThreat(threatTitle) {
-      const responseTextarea = document.getElementById('editedResponse');
-      let responseContent = responseTextarea.value;
-
-      const threatPattern = new RegExp(`## ${threatTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n([\\s\\S]*?)(?=\\n## |$)`, 'g');
-      responseContent = responseContent.replace(threatPattern, '');
-
-      responseTextarea.value = responseContent;
-      saveThreatsContent('<%= subjectid %>');
-    }
-
-    function saveThreatsContent(subjectid) {
-      const responseTextarea = document.getElementById('editedResponse');
-      const updatedContent = responseTextarea.value;
-
-      fetch('/update-merged-content', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ subjectid, mergedContent: updatedContent })
-      }).then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            const compareModalInstance = bootstrap.Modal.getInstance(document.getElementById('compareModal'));
-            if (compareModalInstance) {
-              compareModalInstance.hide();
-            }
-          } else {
-            alert('Error saving changes');
+      // Initialize markdown editor for each threat textarea
+      document.querySelectorAll('.threat-markdown').forEach(textarea => {
+        $(textarea).markdown({
+          iconlibrary: 'fa',
+          additionalButtons: [
+            [{
+              name: "groupCustom",
+              data: [{
+                name: "cmdFindReplace",
+                toggle: true,
+                title: "Find and Replace",
+                icon: "fa fa-search",
+                callback: function(e) {
+                  findAndReplace();
+                }
+              },
+              {
+                name: "cmdCopy",
+                toggle: true,
+                title: "Copy TM",
+                icon: "fa fa-copy",
+                callback: function(e) {
+                  copyToClipboard('editedResponse');
+                }
+              }]
+            }]
+          ],
+          autofocus: false,
+          savable: false,
+          hiddenButtons: ['cmdPreview'],
+          onPreview: function() {
+            return false;
           }
-        }).catch(error => {
-          console.error('Error saving changes:', error);
-          alert('Error saving changes');
         });
+
+        // Hide the preview button with the magnifying glass icon
+        $(textarea).siblings('.md-editor').find('.btn[data-handler="bootstrap-markdown-cmdPreview"]').hide();
+      });
     }
 
     function parseAllThreats(content) {
@@ -531,6 +655,128 @@
       document.execCommand('copy');
       alert('Copied to clipboard!');
     }
+
+    function showRweModal(action) {
+      if (action === 'Add') {
+        $('#addRweModal').modal('show');
+      }
+    }
+
+    function listRwes() {
+      fetch('/list-rwes')
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            const rweList = document.getElementById('rweList');
+            rweList.innerHTML = '';
+
+            data.rwes.forEach(rwe => {
+              const rweItem = document.createElement('li');
+              rweItem.className = 'list-group-item';
+              rweItem.innerHTML = `
+                <button type="button" class="btn btn-link" onclick="editRwe(${rwe.rweid})">${rwe.threat}</button>
+              `;
+              rweList.appendChild(rweItem);
+            });
+
+            const listRweModal = new bootstrap.Modal(document.getElementById('listRweModal'));
+            listRweModal.show();
+          } else {
+            alert('Error listing RWEs.');
+          }
+        });
+    }
+
+    function editRwe(rweid) {
+      fetch(`/get-rwe/${rweid}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            $('#modifyRweForm').data('rweid', rweid);
+            $('#modifyRweThreat').val(data.rwe.threat);
+            $('#modifyRweDescription').val(data.rwe.description);
+            $('#modifyRweReference').val(data.rwe.reference);
+
+            const modifyRweModal = new bootstrap.Modal(document.getElementById('modifyRweModal'));
+            modifyRweModal.show();
+            const listRweModalInstance = bootstrap.Modal.getInstance(document.getElementById('listRweModal'));
+            if (listRweModalInstance) {
+              listRweModalInstance.hide();
+            }
+          } else {
+            alert('Error getting RWE.');
+          }
+        });
+    }
+
+    function confirmDeleteRwe() {
+      const rweid = $('#modifyRweForm').data('rweid');
+      const confirmed = confirm('Are you sure you want to delete this RWE?');
+      if (confirmed) {
+        fetch(`/delete-rwe/${rweid}`, {
+          method: 'DELETE'
+        }).then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              alert('RWE deleted successfully!');
+              $('#modifyRweModal').modal('hide');
+            } else {
+              alert('Error deleting RWE.');
+            }
+          });
+      }
+    }
+
+    function applyRwe() {
+        const responseTextarea = document.getElementById('editedResponse');
+        let responseContent = responseTextarea.value;
+
+        fetch('/list-rwes')
+            .then(response => response.json())
+            .then(data => {
+                console.log('Data received from /list-rwes endpoint:', data); // Debugging line
+
+                if (data.success) {
+                    console.log('Fetched RWEs:', data.rwes); // Log fetched RWEs
+
+                    data.rwes.forEach(rwe => {
+                        console.log('Processing RWE:', rwe); // Log each RWE being processed
+                        
+                        // Create a pattern to match the specific threat section
+                        const threatPattern = new RegExp(`(## Threat: ${rwe.threat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} ##)([\\s\\S]*?)(## |$)`, 'g');
+
+                        responseContent = responseContent.replace(threatPattern, (match, p1, p2, p3) => {
+                            console.log(`Updating content for threat: ${rwe.threat}`);
+                            // Replace the Real-World Example content within the matched threat section
+                            const updatedSection = p2.replace(/(\*\*Real-World Example:\*\*[\s\S]*?)(?=## |$)/, `**Real-World Example:**\n${rwe.description}\nReference: ${rwe.reference}\n\n`);
+                            return `${p1}${updatedSection}${p3}`;
+                        });
+                    });
+
+                    console.log('Updated response content:', responseContent); // Log updated response content
+                    responseTextarea.value = responseContent;
+                    adjustTextareaHeight(responseTextarea);
+                } else {
+                    console.error('Error in data.success:', data.error);
+                    alert('Error applying RWEs.');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching RWEs:', error);
+                alert('Error applying RWEs.');
+            });
+    }
+
+    function adjustTextareaHeight(textarea) {
+        textarea.style.height = 'auto'; // Reset height to auto to calculate the new height correctly
+        textarea.style.height = `${Math.min(textarea.scrollHeight, 800)}px`; // Set the height to the scroll height
+        if (textarea.scrollHeight > 800) {
+            textarea.style.overflowY = 'scroll'; // Enable vertical scrolling if height exceeds 800px
+        } else {
+            textarea.style.overflowY = 'hidden'; // Disable vertical scrolling if height is less than 800px
+        }
+    }
+
   </script>
 </body>
 </html>

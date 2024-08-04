@@ -40,8 +40,8 @@ client.connect()
   .then(() => console.log('Connected to Redis successfully!'))
   .catch(console.error);
 
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+app.use(bodyParser.json({ limit: '10mb' }));
 app.set('view engine', 'ejs');
 app.use(express.static('public'));
 
@@ -105,6 +105,55 @@ const getSubjectText = async (subjectid) => {
   }
 };
 
+// Function to create a new RWE hash
+const createRweHash = async (rweid, threat, description, reference) => {
+  const hashKey = `rwe:${rweid}`;
+  const hashData = {
+    threat,
+    description,
+    reference
+  };
+
+  try {
+    await client.hSet(hashKey, hashData);
+    console.log(`RWE hash created with ID ${rweid}`);
+  } catch (err) {
+    console.error('Error creating RWE hash:', err);
+  }
+};
+
+// Function to get all RWEs
+const getAllRwes = async () => {
+  try {
+    const keys = await client.keys('rwe:*');
+    console.log('RWE keys:', keys); // Log keys
+
+    const rwePromises = keys.map(async key => {
+      const rwe = await client.hGetAll(key);
+      rwe.rweid = key.split(':')[1];
+      return rwe;
+    });
+    const rwes = await Promise.all(rwePromises);
+    console.log('Fetched RWEs from Redis:', rwes); // Log fetched RWEs
+    return rwes;
+  } catch (err) {
+    console.error('Error fetching RWEs:', err);
+    throw err;
+  }
+};
+
+// Function to get an RWE by ID
+const getRweById = async (rweid) => {
+  try {
+    const hashKey = `rwe:${rweid}`;
+    const rwe = await client.hGetAll(hashKey);
+    return rwe;
+  } catch (err) {
+    console.error('Error fetching RWE:', err);
+    throw err;
+  }
+};
+
 app.get('/', async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = 10;
@@ -134,7 +183,7 @@ app.get('/', async (req, res) => {
 
 app.post('/ask', async (req, res) => {
   const subjectText = req.body.subject;
-  const model = req.body.model || 'gpt-4';
+  const model = req.body.model || 'gpt-4o';
   
   try {
     const subjectid = await client.incr('subject_id_counter');
@@ -281,7 +330,7 @@ app.post('/generate-more', async (req, res) => {
     let existingResponse = await getFullResponse(subjectid);
     if (!existingResponse) existingResponse = '';
 
-    const model = await getModel(subjectid) || 'gpt-4';
+    const model = await getModel(subjectid) || 'gpt-4o';
     const subjectText = await getSubjectText(subjectid);
     const prompt = promptTemplate.replace('SUBJECT', subjectText) + "\nContinue generating more results:";
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
@@ -319,7 +368,6 @@ app.post('/generate-summary', async (req, res) => {
     const subjectText = await getSubjectText(subjectid);
     const model = await getModel(subjectid);  // Retrieve the model dynamically
 
-    // Read the prompt-summary.txt file each time the endpoint is called
     const promptSummary = fs.readFileSync(promptSummaryPath, 'utf-8');
     const prompt = `${promptSummary} ${subjectText} ${existingResponse}`;
 
@@ -362,23 +410,18 @@ app.post('/generate-summary', async (req, res) => {
   }
 });
 
-
-// Route to save the edited summary content with version control
 app.post('/save-summary', async (req, res) => {
   const { content } = req.body;
   const versionedSummaryPath = (version) => path.join(__dirname, `prompt-summary-v${version}.txt`);
 
   try {
-    // Determine the next version number
     let version = 1;
     while (fs.existsSync(versionedSummaryPath(version))) {
       version += 1;
     }
 
-    // Save the current summary with version number
     await fs.promises.copyFile(promptSummaryPath, versionedSummaryPath(version));
 
-    // Save the new content as the current summary
     await fs.promises.writeFile(promptSummaryPath, content, 'utf-8');
 
     res.sendStatus(200);
@@ -388,7 +431,6 @@ app.post('/save-summary', async (req, res) => {
   }
 });
 
-// Route to save the modified summary content for each subject
 app.post('/save-modified-summary', async (req, res) => {
   const { subjectid, summary } = req.body;
   const summaryKey = `subject:${subjectid}:summary`;
@@ -402,7 +444,6 @@ app.post('/save-modified-summary', async (req, res) => {
   }
 });
 
-// Update merged content in Redis
 app.post('/update-merged-content', async (req, res) => {
   const { subjectid, mergedContent } = req.body;
   const cacheKey = `subject:${subjectid}:response`;
@@ -420,7 +461,6 @@ app.post('/update-merged-content', async (req, res) => {
   }
 });
 
-// Route to fetch the template content
 app.get('/template', (req, res) => {
   fs.readFile(promptTemplatePath, 'utf-8', (err, data) => {
     if (err) {
@@ -430,7 +470,6 @@ app.get('/template', (req, res) => {
   });
 });
 
-// Route to fetch the summary content
 app.get('/summary', (req, res) => {
   fs.readFile(promptSummaryPath, 'utf-8', (err, data) => {
     if (err) {
@@ -440,7 +479,6 @@ app.get('/summary', (req, res) => {
   });
 });
 
-// Route to fetch the results format content
 app.get('/results-format', (req, res) => {
   fs.readFile('results-format.txt', 'utf-8', (err, data) => {
     if (err) {
@@ -455,28 +493,88 @@ app.get('/results-format', (req, res) => {
   });
 });
 
-// Route to save the edited template content with version control
 app.post('/save-template', async (req, res) => {
   const { content } = req.body;
   const versionedTemplatePath = (version) => path.join(__dirname, `prompt-template-v${version}.txt`);
 
   try {
-    // Determine the next version number
     let version = 1;
     while (fs.existsSync(versionedTemplatePath(version))) {
       version += 1;
     }
 
-    // Save the current template with version number
     await fs.promises.copyFile(promptTemplatePath, versionedTemplatePath(version));
 
-    // Save the new content as the current template
     await fs.promises.writeFile(promptTemplatePath, content, 'utf-8');
 
     res.sendStatus(200);
   } catch (error) {
     console.error('Error saving template:', error);
     res.status(500).send('Error saving template');
+  }
+});
+
+// API endpoints for RWEs
+
+app.post('/add-rwe', async (req, res) => {
+  const { threat, description, reference } = req.body;
+
+  try {
+    const rweid = await client.incr('rwe_id_counter');
+    await createRweHash(rweid, threat, description, reference);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error adding RWE:', err);
+    res.json({ success: false, error: 'Error adding RWE' });
+  }
+});
+
+app.get('/list-rwes', async (req, res) => {
+  try {
+    const rwes = await getAllRwes();
+    res.json({ success: true, rwes });
+  } catch (err) {
+    console.error('Error listing RWEs:', err);
+    res.json({ success: false, error: 'Error listing RWEs' });
+  }
+});
+
+app.get('/get-rwe/:rweid', async (req, res) => {
+  const { rweid } = req.params;
+
+  try {
+    const rwe = await getRweById(rweid);
+    res.json({ success: true, rwe });
+  } catch (err) {
+    console.error('Error getting RWE:', err);
+    res.json({ success: false, error: 'Error getting RWE' });
+  }
+});
+
+app.post('/update-rwe/:rweid', async (req, res) => {
+  const { rweid } = req.params;
+  const { threat, description, reference } = req.body;
+  const hashKey = `rwe:${rweid}`;
+
+  try {
+    await client.hSet(hashKey, { threat, description, reference });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error updating RWE:', err);
+    res.json({ success: false, error: 'Error updating RWE' });
+  }
+});
+
+app.delete('/delete-rwe/:rweid', async (req, res) => {
+  const { rweid } = req.params;
+  const hashKey = `rwe:${rweid}`;
+
+  try {
+    await client.del(hashKey);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting RWE:', err);
+    res.json({ success: false, error: 'Error deleting RWE' });
   }
 });
 
