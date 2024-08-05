@@ -539,6 +539,24 @@ app.get('/list-rwes', async (req, res) => {
   }
 });
 
+const pageSize = 9; // 3x3 grid
+
+app.get('/list-rwes-paginated', async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+
+  try {
+    const rwes = await getAllRwes();
+    const totalRwes = rwes.length;
+    const totalPages = Math.ceil(totalRwes / pageSize);
+    const paginatedRwes = rwes.slice((page - 1) * pageSize, page * pageSize);
+
+    res.json({ success: true, rwes: paginatedRwes, totalPages, currentPage: page });
+  } catch (err) {
+    console.error('Error listing RWEs:', err);
+    res.json({ success: false, error: 'Error listing RWEs' });
+  }
+});
+
 app.get('/get-rwe/:rweid', async (req, res) => {
   const { rweid } = req.params;
 
