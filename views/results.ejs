@@ -741,26 +741,25 @@
         fetch('/list-rwes')
             .then(response => response.json())
             .then(data => {
-                console.log('Data received from /list-rwes endpoint:', data); // Debugging line
+                // console.log('Data received from /list-rwes endpoint:', data); // Debugging line
 
                 if (data.success) {
-                    console.log('Fetched RWEs:', data.rwes); // Log fetched RWEs
+                    // console.log('Fetched RWEs:', data.rwes); // Log fetched RWEs
 
                     data.rwes.forEach(rwe => {
-                        console.log('Processing RWE:', rwe); // Log each RWE being processed
+                        // console.log('Processing RWE:', rwe); // Log each RWE being processed
                         
                         // Create a pattern to match the specific threat section
                         const threatPattern = new RegExp(`(## Threat: ${rwe.threat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} ##)([\\s\\S]*?)(## |$)`, 'g');
 
                         responseContent = responseContent.replace(threatPattern, (match, p1, p2, p3) => {
-                            console.log(`Updating content for threat: ${rwe.threat}`);
                             // Replace the Real-World Example content within the matched threat section
-                            const updatedSection = p2.replace(/(\*\*Real-World Example:\*\*[\s\S]*?)(?=## |$)/, `**Real-World Example:**\n${rwe.description}\nReference: ${rwe.reference}\n\n`);
+                            const updatedSection = p2.replace(/(\*\*Real-World Example:\*\*[\s\S]*?)(?=\*\*Impact if Exploited:\*\*|$)/, `**Real-World Example:** ${rwe.description} Reference: ${rwe.reference}\n\n`);
                             return `${p1}${updatedSection}${p3}`;
                         });
                     });
 
-                    console.log('Updated response content:', responseContent); // Log updated response content
+                    // console.log('Updated response content:', responseContent); // Log updated response content
                     responseTextarea.value = responseContent;
                     adjustTextareaHeight(responseTextarea);
                 } else {
