@@ -191,6 +191,9 @@ app.post('/ask', async (req, res) => {
     const titleKey = `subject:${subjectid}:title`;
     const modelKey = `subject:${subjectid}:model`;
     const subjectKey = `subject:${subjectid}:text`;
+
+    // Re-read the prompt template for each request
+    const promptTemplate = fs.readFileSync(promptTemplatePath, 'utf-8');
     const prompt = promptTemplate.replace('SUBJECT', subjectText);
 
     let cachedResponse = await client.get(cacheKey);
@@ -218,6 +221,7 @@ app.post('/ask', async (req, res) => {
     res.send('Error communicating with GPT-4 API.');
   }
 });
+
 
 app.get('/search-titles', async (req, res) => {
   const query = req.query.query.toLowerCase();

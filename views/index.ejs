@@ -42,6 +42,13 @@
     .sidebar a:hover {
       background-color: #ddd;
     }
+    /* Ensuring the modal has the highest z-index */
+    .modal.fade .modal-dialog {
+      z-index: 1060;
+    }
+    .modal-backdrop {
+      z-index: 1050;
+    }
   </style>
 </head>
 <body>
@@ -63,7 +70,7 @@
     <div class="card mb-4">
       <div class="card-body">
         <h5 class="card-title">Submit a New Threat Model</h5>
-        <form action="/ask" method="post">
+        <form id="threatModelForm" action="/ask" method="post" onsubmit="return handleFormSubmission(event)">
           <div class="mb-3">
             <label for="subject" class="form-label">Threat Model</label>
             <textarea class="form-control" id="subject" name="subject" rows="2" required></textarea>
@@ -193,8 +200,32 @@
     </div>
   </div>
 
+  <!-- Generating Modal -->
+  <div class="modal fade" id="generatingModal" tabindex="-1" aria-labelledby="generatingModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-body text-center">
+          <p>Generating a Threat Model...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    function handleFormSubmission(event) {
+      event.preventDefault(); // Prevent the form from submitting immediately
+      const generatingModal = new bootstrap.Modal(document.getElementById('generatingModal'), {
+        backdrop: 'static',
+        keyboard: false
+      });
+      generatingModal.show();
+      
+      setTimeout(() => {
+        event.target.submit(); // Submit the form after the modal is shown
+      }, 500); // Adjust the delay as needed (500ms here)
+    }
+
     document.getElementById('search-bar').addEventListener('input', function() {
       const query = this.value;
       if (query.length > 0) {
