@@ -1,11 +1,5 @@
 .env
 .DS_Store
 .dccache
-prompt-template.txt
-prompt-template-v*.txt
-prompt-summary.txt
-prompt-summary-v*.txt
-results-format.txt
-results-format-v*.txt
-models.txt
+*.txt
 tools/
