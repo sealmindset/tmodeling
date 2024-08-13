@@ -29,7 +29,11 @@ if (!openaiApiKey) {
 }
 
 const client = redis.createClient({
-  url: `redis://${redisHost}:${redisPort}`
+  socket: {
+    host: redisHost,
+    port: redisPort
+  },
+  password: process.env.REDIS_PASSWORD
 });
 
 client.on('error', (err) => {
