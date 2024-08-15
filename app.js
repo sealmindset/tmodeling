@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const naturalCompare = require('natural-compare');
 const session = require('express-session');
+const RedisStore = require('connect-redis').default; // Import connect-redis
 const passport = require('passport');
 
 const app = express();
@@ -31,6 +32,7 @@ if (!openaiApiKey) {
   process.exit(1);
 }
 
+// Redis client setup
 const client = redis.createClient({
   socket: {
     host: redisHost,
@@ -53,13 +55,17 @@ app.use(bodyParser.json({ limit: '10mb' }));
 app.set('view engine', 'ejs');
 app.use(express.static('public'));
 
-// Session setup
+// Session setup with RedisStore
 app.use(
   session({
+    store: new RedisStore({ client }), // Use RedisStore to store sessions
     secret: 'your-secret',
     resave: false,
     saveUninitialized: false, // Ensure sessions are not created for unauthenticated users
-    cookie: { secure: false }, // Set to true if you're serving your app over HTTPS
+    cookie: {
+      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+      maxAge: 1000 * 60 * 60 * 24, // 1 day in milliseconds
+    },
   })
 );
 
