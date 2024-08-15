@@ -610,7 +610,6 @@ async function getRweById(rweid) {
   return rwe;
 }
 
-
 app.post('/add-rwe', ensureAuthenticated, async (req, res) => {
   const { threat, description, reference } = req.body;
 
