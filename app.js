@@ -58,7 +58,8 @@ app.use(
   session({
     secret: 'your-secret',
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false, // Ensure sessions are not created for unauthenticated users
+    cookie: { secure: false }, // Set to true if you're serving your app over HTTPS
   })
 );
 
@@ -73,6 +74,7 @@ passport.serializeUser((user, done) => {
 passport.deserializeUser(async (email, done) => {
   try {
     const user = await client.hGetAll(`user:${email}`);
+    if (Object.keys(user).length === 0) return done(null, false); // No user found
     done(null, user);
   } catch (err) {
     done(err, null);
