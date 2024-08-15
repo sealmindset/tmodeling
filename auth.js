@@ -53,7 +53,7 @@ module.exports = (app) => {
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: '/auth/google/callback',
+        callbackURL: 'https://tmodeling.onrender.com/auth/google/callback',
       },
       async function (accessToken, refreshToken, profile, done) {
         const userExists = await checkUserRegistration(profile);
@@ -72,7 +72,7 @@ module.exports = (app) => {
       {
         clientID: process.env.GITHUB_CLIENT_ID,
         clientSecret: process.env.GITHUB_CLIENT_SECRET,
-        callbackURL: '/auth/github/callback',
+        callbackURL: 'https://tmodeling.onrender.com/auth/github/callback',
       },
       async function (accessToken, refreshToken, profile, done) {
         const userExists = await checkUserRegistration(profile);
