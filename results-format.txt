@@ -1,0 +1,3 @@
+## Threat: (threat) ##
+**Description:** (description)
+**Mitigation:** (mitigations)
