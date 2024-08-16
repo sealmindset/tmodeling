@@ -59,9 +59,9 @@ app.use(express.static('public'));
 app.use(
   session({
     store: new RedisStore({ client }), // Use RedisStore to store sessions
-    secret: 'your-secret',
+    secret: process.env.SESSION_SECRET, // Use the secret from .env
     resave: false,
-    saveUninitialized: false, // Ensure sessions are not created for unauthenticated users
+    saveUninitialized: false,
     cookie: {
       secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
       maxAge: 1000 * 60 * 60 * 24, // 1 day in milliseconds
