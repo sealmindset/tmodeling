@@ -689,16 +689,100 @@ app.post('/update-rwe/:rweid', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// Route to list all users
+app.get('/list-users', ensureAuthenticated, async (req, res) => {
+  try {
+    const keys = await client.keys('user:*');
+    const users = [];
+
+    for (const key of keys) {
+      const user = await client.hGetAll(key);
+      users.push(user);
+    }
+
+    res.json({ success: true, users });
+  } catch (err) {
+    console.error('Error listing users:', err);
+    res.status(500).json({ success: false, error: 'Error listing users.' });
+  }
+});
+
+// Route to get a specific user's details
+app.get('/get-user', ensureAuthenticated, async (req, res) => {
+  const email = req.query.email;
+
+  if (!email) {
+    return res.status(400).json({ success: false, error: 'Email is required.' });
+  }
+
+  try {
+    const user = await client.hGetAll(`user:${email}`);
+    if (Object.keys(user).length === 0) {
+      return res.status(404).json({ success: false, error: 'User not found.' });
+    }
+    res.json({ success: true, user });
+  } catch (err) {
+    console.error('Error fetching user:', err);
+    res.status(500).json({ success: false, error: 'Error fetching user.' });
+  }
+});
+
+// Route to update a specific user's details
+app.post('/update-user', ensureAuthenticated, async (req, res) => {
+  const email = req.query.email;
+  const { name, registered } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ success: false, error: 'Email is required.' });
+  }
+
+  if (!name || (registered !== 'true' && registered !== 'false')) {
+    return res.status(400).json({ success: false, error: 'Invalid data provided.' });
+  }
+
+  try {
+    await client.hSet(`user:${email}`, { name, registered });
+    res.json({ success: true, message: 'User updated successfully.' });
+  } catch (err) {
+    console.error('Error updating user:', err);
+    res.status(500).json({ success: false, error: 'Error updating user.' });
+  }
+});
+
+// Route to delete a specific user
+app.delete('/delete-user', ensureAuthenticated, async (req, res) => {
+  const email = req.query.email;
+
+  if (!email) {
+    return res.status(400).json({ success: false, error: 'Email is required.' });
+  }
+
+  try {
+    const result = await client.del(`user:${email}`);
+    if (result === 0) {
+      return res.status(404).json({ success: false, error: 'User not found.' });
+    }
+    res.json({ success: true, message: 'User deleted successfully.' });
+  } catch (err) {
+    console.error('Error deleting user:', err);
+    res.status(500).json({ success: false, error: 'Error deleting user.' });
+  }
+});
+
+// Route to delete a specific RWE
 app.delete('/delete-rwe/:rweid', ensureAuthenticated, async (req, res) => {
   const { rweid } = req.params;
   const hashKey = `rwe:${rweid}`;
 
   try {
-    await client.del(hashKey);
-    res.json({ success: true });
+    const result = await client.del(hashKey);
+    if (result === 0) {
+      return res.status(404).json({ success: false, error: 'RWE not found.' });
+    }
+    res.json({ success: true, message: 'RWE deleted successfully.' });
   } catch (err) {
     console.error('Error deleting RWE:', err);
-    res.json({ success: false, error: 'Error deleting RWE' });
+    res.status(500).json({ success: false, error: 'Error deleting RWE.' });
   }
 });
 
