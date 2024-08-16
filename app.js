@@ -126,6 +126,7 @@ function ensureAuthenticated(req, res, next) {
   if (req.isAuthenticated()) {
     return next();
   }
+  console.log('User is not authenticated, redirecting to login.');
   res.redirect('/login');
 }
 
