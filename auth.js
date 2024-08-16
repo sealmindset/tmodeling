@@ -27,24 +27,37 @@ client
 module.exports = (app) => {
   // Passport session setup
   passport.serializeUser((user, done) => {
+    console.log('Serializing user:', user);
     done(null, user.email); // Serialize by email
   });
 
   passport.deserializeUser(async (email, done) => {
     try {
+      console.log('Deserializing user with email:', email);
       const user = await client.hGetAll(`user:${email}`);
-      if (Object.keys(user).length === 0) return done(null, false); // No user found
+      if (Object.keys(user).length === 0) {
+        console.log('No user found for email:', email);
+        return done(null, false);
+      }
+      console.log('User deserialized:', user);
       done(null, user);
     } catch (err) {
+      console.error('Error during deserialization:', err);
       done(err, null);
     }
   });
 
   // Check if user is registered
   const checkUserRegistration = async (profile) => {
-    const userId = `user:${profile.emails[0].value}`;
-    const userExists = await client.exists(userId);
-    return userExists;
+    try {
+      const userId = `user:${profile.emails[0].value}`;
+      const userExists = await client.exists(userId);
+      console.log(`Checking registration for user: ${userId}, exists: ${userExists}`);
+      return userExists;
+    } catch (err) {
+      console.error('Error checking user registration:', err);
+      return false;
+    }
   };
 
   // Use the Google strategy within Passport.
@@ -56,11 +69,14 @@ module.exports = (app) => {
         callbackURL: process.env.GOOGLE_CALLBACK_URL,
       },
       async function (accessToken, refreshToken, profile, done) {
+        console.log('Google Strategy called with profile:', profile);
         const userExists = await checkUserRegistration(profile);
         if (!userExists) {
+          console.log('User not registered:', profile.emails[0].value);
           return done(null, false, { message: 'Please register before using Google login.' });
         }
         const user = await client.hGetAll(`user:${profile.emails[0].value}`);
+        console.log('User found:', user);
         return done(null, user);
       }
     )
@@ -75,11 +91,14 @@ module.exports = (app) => {
         callbackURL: process.env.GITHUB_CALLBACK_URL,
       },
       async function (accessToken, refreshToken, profile, done) {
+        console.log('GitHub Strategy called with profile:', profile);
         const userExists = await checkUserRegistration(profile);
         if (!userExists) {
+          console.log('User not registered:', profile.emails[0].value);
           return done(null, false, { message: 'Please register before using GitHub login.' });
         }
         const user = await client.hGetAll(`user:${profile.emails[0].value}`);
+        console.log('User found:', user);
         return done(null, user);
       }
     )
@@ -100,6 +119,7 @@ module.exports = (app) => {
       if (!req.user) {
         res.redirect('/register');
       } else {
+        console.log('Google authentication successful, redirecting to /');
         res.redirect('/');
       }
     }
@@ -116,17 +136,19 @@ module.exports = (app) => {
       if (!req.user) {
         res.redirect('/register');
       } else {
+        console.log('GitHub authentication successful, redirecting to /');
         res.redirect('/');
       }
     }
   );
 
   // Logout route
-  app.get('/logout', (req, res) => {
+  app.get('/logout', (req, res, next) => {
     req.logout((err) => {
       if (err) {
         return next(err);
       }
+      console.log('User logged out successfully');
       res.redirect('/');
     });
   });

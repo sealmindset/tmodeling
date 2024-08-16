@@ -100,8 +100,8 @@ app.post('/register', async (req, res) => {
     const userExists = await client.exists(userId);
 
     if (userExists) {
-      res.send('User already registered.');
-      return;
+      // Render the registration page with the modal trigger
+      return res.render('register', { showModal: true });
     }
 
     await client.hSet(userId, {
