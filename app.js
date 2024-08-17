@@ -21,6 +21,12 @@ const promptTemplatePath = path.join(__dirname, 'prompt-template.txt');
 const promptSummaryPath = path.join(__dirname, 'prompt-summary.txt');
 const resultsFormatPath = path.join(__dirname, 'results-format.txt');
 
+const cors = require('cors');
+app.use(cors({
+  origin: 'https://tmodeling.onrender.com',
+  credentials: true
+}));
+
 console.log('Environment Variables:');
 console.log(`API_KEY: ${openaiApiKey ? 'Set' : 'Not Set'}`);
 console.log(`REDIS_HOST: ${redisHost}`);
