@@ -77,7 +77,6 @@ module.exports = (app) => {
         }
         const user = await client.hGetAll(`user:${profile.emails[0].value}`);
         console.log('User found:', user);
-        req.user = user;
         return done(null, user);
       }
     )
