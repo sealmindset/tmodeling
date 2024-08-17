@@ -74,13 +74,15 @@ app.use(passport.session());
 
 // Passport serialization
 passport.serializeUser((user, done) => {
-  done(null, user.email); // Use email as the unique identifier
+  console.log('Serializing user:', user);
+  done(null, user.email);
 });
 
 passport.deserializeUser(async (email, done) => {
   try {
     const user = await client.hGetAll(`user:${email}`);
-    if (Object.keys(user).length === 0) return done(null, false); // No user found
+    if (Object.keys(user).length === 0) return done(null, false);
+    console.log('Deserializing user:', user);
     done(null, user);
   } catch (err) {
     done(err, null);
@@ -123,6 +125,8 @@ require('./auth')(app);
 
 // Middleware to ensure the user is authenticated
 function ensureAuthenticated(req, res, next) {
+  console.log('Session:', req.session);
+  console.log('User:', req.user);
   if (req.isAuthenticated()) {
     return next();
   }
