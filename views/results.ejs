@@ -73,17 +73,6 @@
       overflow-y: auto; /* Ensure modal content is scrollable */
     }
 
-    #loadingIndicator, #loadingIndicatorTM {
-      display: none;
-      position: fixed;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      padding: 20px;
-      background: white;
-      border: 1px solid #ccc;
-      z-index: 1000;
-    }
     .threat-content {
       white-space: pre-wrap;
     }
@@ -105,7 +94,7 @@
     <div class="navbar-vertical">
       <nav class="nav flex-column">
         <a class="nav-link" href="/"><i class="fa fa-home"></i> Home</a>
-        <form action="/generate-more" method="post" class="nav-link" onsubmit="showLoadingTM()">
+        <form action="/generate-more" method="post" class="nav-link" onsubmit="showLoadingModal()">
           <input type="hidden" name="subjectid" value="<%= subjectid %>">
           <button type="submit" class="btn btn-link p-0"><i class="fa fa-refresh"></i> Generate TM</button>
         </form>
@@ -157,11 +146,19 @@
         <button class="btn btn-secondary" onclick="closeSummaryDialog()">Close</button>
         <button class="btn btn-primary" onclick="saveSummary('<%= subjectid %>')">Save</button>
       </div>
-      <div id="loadingIndicator">
-        <p>Generating report, please wait...</p>
-      </div>
-      <div id="loadingIndicatorTM">
-        <p>Generating additional Threat Models, please wait...</p>
+
+      <!-- Loading Modal -->
+      <div class="modal fade" id="loadingModal" tabindex="-1" aria-labelledby="loadingModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-body text-center">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Processing...</span>
+              </div>
+              <p class="mt-3">Processing, please wait...</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Threats Modal -->
@@ -496,10 +493,11 @@
     }
 
     function generateSummary(subjectid) {
-      const loadingIndicator = document.getElementById('loadingIndicator');
-      const newSummaryButton = document.getElementById('newSummaryButton');
-      loadingIndicator.style.display = 'block';
-      newSummaryButton.disabled = true;
+      const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'), {
+        backdrop: 'static',
+        keyboard: false
+      });
+      loadingModal.show();
 
       fetch('/generate-summary', {
         method: 'POST',
@@ -509,8 +507,7 @@
         body: JSON.stringify({ subjectid })
       }).then(response => response.json())
         .then(data => {
-          loadingIndicator.style.display = 'none';
-          newSummaryButton.disabled = false;
+          loadingModal.hide();
           if (data.success) {
             showSummaryDialog(data.summary);
           } else {
@@ -531,9 +528,12 @@
         });
     }
 
-    function showLoadingTM() {
-      const loadingIndicatorTM = document.getElementById('loadingIndicatorTM');
-      loadingIndicatorTM.style.display = 'block';
+    function showLoadingModal() {
+      const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'), {
+        backdrop: 'static',
+        keyboard: false
+      });
+      loadingModal.show();
     }
 
     async function reformatResponse() {

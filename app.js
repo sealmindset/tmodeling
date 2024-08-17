@@ -15,7 +15,8 @@ const port = process.env.PORT || 3000;
 
 const redisHost = process.env.REDIS_HOST || 'localhost';
 const redisPort = process.env.REDIS_PORT || 6379;
-const openaiApiKey = process.env.API_KEY;
+// Commented out the statically assigned API key
+// const openaiApiKey = process.env.API_KEY;
 
 const promptTemplatePath = path.join(__dirname, 'prompt-template.txt');
 const promptSummaryPath = path.join(__dirname, 'prompt-summary.txt');
@@ -28,15 +29,11 @@ app.use(cors({
 }));
 
 console.log('Environment Variables:');
-console.log(`API_KEY: ${openaiApiKey ? 'Set' : 'Not Set'}`);
+// API key logging is commented out since it's no longer statically assigned
+// console.log(`API_KEY: ${openaiApiKey ? 'Set' : 'Not Set'}`);
 console.log(`REDIS_HOST: ${redisHost}`);
 console.log(`REDIS_PORT: ${redisPort}`);
 console.log(`PORT: ${port}`);
-
-if (!openaiApiKey) {
-  console.error('OpenAI API key is not set. Please check your .env file.');
-  process.exit(1);
-}
 
 // Redis client setup
 const client = redis.createClient({
@@ -101,7 +98,7 @@ app.get('/register', (req, res) => {
 });
 
 app.post('/register', async (req, res) => {
-  const { name, email } = req.body;
+  const { name, email, apiKey } = req.body;  // Include apiKey in the request body
 
   try {
     const userId = `user:${email}`;
@@ -115,7 +112,8 @@ app.post('/register', async (req, res) => {
     await client.hSet(userId, {
       name,
       email,
-      registered: 'true', // Ensure 'true' is a string
+      apiKey,  // Save the API key with the user
+      registered: 'true', 
     });
 
     console.log(`User registered with email: ${email}`);
@@ -131,23 +129,17 @@ require('./auth')(app);
 
 // Middleware to ensure the user is authenticated
 function ensureAuthenticated(req, res, next) {
-  // Logging the session object to understand its current state
   console.log('Session:', req.session);
-
-  // Logging the user object to see if it's correctly populated
   console.log('User:', req.user);
 
-  // Check if the user is authenticated
   if (req.isAuthenticated()) {
     return next();
   }
 
-  // If not authenticated, log and redirect to login
   console.log('User is not authenticated, redirecting to login.');
   res.redirect('/login');
 }
 
-// Routes for your application
 const promptTemplate = fs.readFileSync(promptTemplatePath, 'utf-8');
 const promptSummary = fs.readFileSync(promptSummaryPath, 'utf-8');
 
@@ -244,45 +236,46 @@ app.get('/', ensureAuthenticated, async (req, res) => {
 
 app.post('/ask', ensureAuthenticated, async (req, res) => {
   const subjectText = req.body.subject;
-  const model = req.body.model || 'gpt-4o';
+  const model = req.body.model || 'gpt-4';
+  const apiKey = req.body.apiKey || req.user.apiKey; // Use provided API key or user's saved key
 
   try {
-    const subjectid = await client.incr('subject_id_counter');
-    const cacheKey = `subject:${subjectid}:response`;
-    const titleKey = `subject:${subjectid}:title`;
-    const modelKey = `subject:${subjectid}:model`;
-    const subjectKey = `subject:${subjectid}:text`;
+      const subjectid = await client.incr('subject_id_counter');
+      const cacheKey = `subject:${subjectid}:response`;
+      const titleKey = `subject:${subjectid}:title`;
+      const modelKey = `subject:${subjectid}:model`;
+      const subjectKey = `subject:${subjectid}:text`;
 
-    const promptTemplate = fs.readFileSync(promptTemplatePath, 'utf-8');
-    const prompt = promptTemplate.replace('SUBJECT', subjectText);
+      const promptTemplate = fs.readFileSync(promptTemplatePath, 'utf-8');
+      const prompt = promptTemplate.replace('SUBJECT', subjectText);
 
-    let cachedResponse = await client.get(cacheKey);
-    if (cachedResponse) {
-      res.redirect(`/results?subjectid=${encodeURIComponent(subjectid)}`);
-    } else {
-      const response = await axios.post(
-        'https://api.openai.com/v1/chat/completions',
-        {
-          model,
-          messages: [{ role: 'user', content: prompt }],
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${openaiApiKey}`,
-          }
-        }
-      );
+      let cachedResponse = await client.get(cacheKey);
+      if (cachedResponse) {
+          res.redirect(`/results?subjectid=${encodeURIComponent(subjectid)}`);
+      } else {
+          const response = await axios.post(
+              'https://api.openai.com/v1/chat/completions',
+              {
+                  model,
+                  messages: [{ role: 'user', content: prompt }],
+              },
+              {
+                  headers: {
+                      Authorization: `Bearer ${apiKey}`,
+                  }
+              }
+          );
 
-      const apiResponse = response.data.choices[0].message.content;
-      await client.set(cacheKey, apiResponse, { EX: 3600 });
-      await client.set(titleKey, subjectText);
-      await client.set(modelKey, model);
-      await client.set(subjectKey, subjectText);
-      res.redirect(`/results?subjectid=${encodeURIComponent(subjectid)}`);
-    }
+          const apiResponse = response.data.choices[0].message.content;
+          await client.set(cacheKey, apiResponse, { EX: 3600 });
+          await client.set(titleKey, subjectText);
+          await client.set(modelKey, model);
+          await client.set(subjectKey, subjectText);
+          res.redirect(`/results?subjectid=${encodeURIComponent(subjectid)}`);
+      }
   } catch (error) {
-    console.error('Error communicating with GPT-4 API:', error);
-    res.send('Error communicating with GPT-4 API.');
+      console.error('Error communicating with GPT-4 API:', error);
+      res.send('Error communicating with GPT-4 API.');
   }
 });
 
@@ -399,38 +392,42 @@ app.post('/delete-subjects', ensureAuthenticated, async (req, res) => {
 
 app.post('/generate-more', ensureAuthenticated, async (req, res) => {
   const { subjectid } = req.body;
-  const cacheKey = `subject:${subjectid}:response`;
+  const userEmail = req.user.email;
 
   try {
-    let existingResponse = await getFullResponse(subjectid);
-    if (!existingResponse) existingResponse = '';
-
-    const model = (await getModel(subjectid)) || 'gpt-4o';
-    const subjectText = await getSubjectText(subjectid);
-    const prompt =
-      promptTemplate.replace('SUBJECT', subjectText) +
-      '\nContinue generating more results:';
-    const response = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
-      {
-        model,
-        messages: [{ role: 'user', content: prompt }],
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${openaiApiKey}`,
-        }
+      // Retrieve the stored API key
+      const apiKey = await client.hGet(`user:${userEmail}`, 'apiKey');
+      if (!apiKey) {
+          return res.status(400).send('API Key not found for user.');
       }
-    );
 
-    const newResponse = response.data.choices[0].message.content;
-    const updatedResponse = `${existingResponse}\n\n${newResponse}`.trim();
+      const existingResponse = await getFullResponse(subjectid);
+      const subjectText = await getSubjectText(subjectid);
+      const model = await getModel(subjectid);
 
-    await client.set(cacheKey, updatedResponse);
-    res.redirect(`/results?subjectid=${encodeURIComponent(subjectid)}`);
+      const prompt = `${existingResponse}\nContinue generating more results:`;
+
+      let response = await axios.post(
+          'https://api.openai.com/v1/chat/completions',
+          {
+              model,
+              messages: [{ role: 'user', content: prompt }],
+          },
+          {
+              headers: {
+                  Authorization: `Bearer ${apiKey}`, // Use the stored API key
+              },
+          }
+      );
+
+      const newResponse = response.data.choices[0].message.content;
+      const updatedResponse = `${existingResponse}\n\n${newResponse}`.trim();
+
+      await client.set(`subject:${subjectid}:response`, updatedResponse);
+      res.redirect(`/results?subjectid=${encodeURIComponent(subjectid)}`);
   } catch (error) {
-    console.error('Error generating more results:', error);
-    res.send('Error generating more results.');
+      console.error('Error generating more results:', error);
+      res.send('Error generating more results.');
   }
 });
 
@@ -451,6 +448,13 @@ app.post('/generate-summary', ensureAuthenticated, async (req, res) => {
 
     const promptSummary = fs.readFileSync(promptSummaryPath, 'utf-8');
     const prompt = `${promptSummary} ${subjectText} ${existingResponse}`;
+    
+    // Fetch the user's API key from Redis
+    const userApiKey = await client.hGet(`user:${req.user.email}`, 'apiKey');
+
+    if (!userApiKey) {
+      throw new Error('API Key not found for user');
+    }
 
     console.log('Prompt for summary:', prompt);
 
@@ -462,7 +466,7 @@ app.post('/generate-summary', ensureAuthenticated, async (req, res) => {
       },
       {
         headers: {
-          Authorization: `Bearer ${openaiApiKey}`,
+          Authorization: `Bearer ${userApiKey}`,
         },
         timeout: 60000, // 60 seconds timeout
       }
@@ -747,24 +751,25 @@ app.get('/get-user', ensureAuthenticated, async (req, res) => {
 // Route to update a specific user's details
 app.post('/update-user', ensureAuthenticated, async (req, res) => {
   const email = req.query.email;
-  const { name, registered } = req.body;
+  const { name, registered, apiKey } = req.body;
 
   if (!email) {
-    return res.status(400).json({ success: false, error: 'Email is required.' });
+      return res.status(400).json({ success: false, error: 'Email is required.' });
   }
 
   if (!name || (registered !== 'true' && registered !== 'false')) {
-    return res.status(400).json({ success: false, error: 'Invalid data provided.' });
+      return res.status(400).json({ success: false, error: 'Invalid data provided.' });
   }
 
   try {
-    await client.hSet(`user:${email}`, { name, registered });
-    res.json({ success: true, message: 'User updated successfully.' });
+      await client.hSet(`user:${email}`, { name, registered, apiKey }); // Save the API key in Redis
+      res.json({ success: true, message: 'User updated successfully.' });
   } catch (err) {
-    console.error('Error updating user:', err);
-    res.status(500).json({ success: false, error: 'Error updating user.' });
+      console.error('Error updating user:', err);
+      res.status(500).json({ success: false, error: 'Error updating user.' });
   }
 });
+
 
 // Route to delete a specific user
 app.delete('/delete-user', ensureAuthenticated, async (req, res) => {
