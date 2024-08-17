@@ -131,11 +131,18 @@ require('./auth')(app);
 
 // Middleware to ensure the user is authenticated
 function ensureAuthenticated(req, res, next) {
+  // Logging the session object to understand its current state
   console.log('Session:', req.session);
+
+  // Logging the user object to see if it's correctly populated
   console.log('User:', req.user);
+
+  // Check if the user is authenticated
   if (req.isAuthenticated()) {
     return next();
   }
+
+  // If not authenticated, log and redirect to login
   console.log('User is not authenticated, redirecting to login.');
   res.redirect('/login');
 }
