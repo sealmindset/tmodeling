@@ -359,13 +359,14 @@ app.post('/delete-subjects', ensureAuthenticated, async (req, res) => {
   const subjectsToDelete = req.body.subjectsToDelete;
 
   if (!subjectsToDelete) {
-    res.redirect('/');
+    res.status(400).send('No subject specified for deletion.');
     return;
   }
 
   try {
     const deletePromises = Array.isArray(subjectsToDelete)
       ? subjectsToDelete.map((subjectid) => {
+          console.log('Deleting subject ID:', subjectid); // Log each subject ID being deleted
           return Promise.all([
             client.del(`subject:${subjectid}:response`),
             client.del(`subject:${subjectid}:title`),
@@ -375,6 +376,7 @@ app.post('/delete-subjects', ensureAuthenticated, async (req, res) => {
           ]);
         })
       : [
+          console.log('Deleting single subject ID:', subjectsToDelete), // Log for a single subject ID
           client.del(`subject:${subjectsToDelete}:response`),
           client.del(`subject:${subjectsToDelete}:title`),
           client.del(`subject:${subjectsToDelete}:summary`),
