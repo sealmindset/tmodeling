@@ -416,9 +416,14 @@
 
       $('#addRweForm').on('submit', function (event) {
         event.preventDefault();
-        const threat = $('#addRweThreat').val();
-        const description = $('#addRweDescription').val();
-        const reference = $('#addRweReference').val();
+        const threat = $('#addRweThreat').val().trim();
+        const description = $('#addRweDescription').val().trim();
+        const reference = $('#addRweReference').val().trim();
+
+        if (!threat || !description || !reference) {
+          alert('All fields are required.');
+          return;
+        }
 
         $.post('/add-rwe', { threat, description, reference }, function (data) {
           if (data.success) {
@@ -427,6 +432,9 @@
           } else {
             alert('Error adding RWE.');
           }
+        }).fail(function (error) {
+          console.error('Error adding RWE:', error);
+          alert('Error adding RWE.');
         });
       });
 

@@ -645,13 +645,22 @@ async function getRweById(rweid) {
 app.post('/add-rwe', ensureAuthenticated, async (req, res) => {
   const { threat, description, reference } = req.body;
 
+  if (!threat || !description || !reference) {
+    console.error('Missing required fields:', { threat, description, reference });
+    return res.status(400).json({ success: false, error: 'All fields are required.' });
+  }
+
   try {
     const rweid = await client.incr('rwe_id_counter');
-    await createRweHash(rweid, threat, description, reference);
+    await client.hSet(`rwe:${rweid}`, {
+      threat,
+      description,
+      reference,
+    });
     res.json({ success: true });
   } catch (err) {
     console.error('Error adding RWE:', err);
-    res.json({ success: false, error: 'Error adding RWE' });
+    res.status(500).json({ success: false, error: 'Error adding RWE.' });
   }
 });
 
