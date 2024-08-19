@@ -202,7 +202,7 @@ const getSubjectText = async (subjectid) => {
 
 app.get('/', ensureAuthenticated, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
-  const pageSize = 10;
+  const pageSize = 8;
 
   try {
     let subjectsWithTitles = await getAllSubjectsWithTitles();
@@ -305,22 +305,24 @@ app.get('/results', ensureAuthenticated, async (req, res) => {
     summary = await getSummary(subjectid);
     model = await getModel(subjectid);
     subjectText = await getSubjectText(subjectid);
+    const rwes = await getAllRwes(); // Fetch all RWEs
+
+    res.render('results', {
+      subjectid,
+      subjectText,
+      response,
+      title,
+      summary,
+      model,
+      user: req.user,
+      rwes, // Pass all RWEs to the template
+    });
   } catch (error) {
     console.error('Error fetching response from Redis:', error);
     res.send('Error fetching response from Redis.');
-    return;
   }
-
-  res.render('results', {
-    subjectid,
-    subjectText,
-    response,
-    title,
-    summary,
-    model,
-    user: req.user,
-  });
 });
+
 
 app.get('/get-summary', ensureAuthenticated, async (req, res) => {
   const { subjectid } = req.query;
@@ -808,16 +810,45 @@ app.delete('/delete-rwe/:rweid', ensureAuthenticated, async (req, res) => {
   const hashKey = `rwe:${rweid}`;
 
   try {
-    const result = await client.del(hashKey);
-    if (result === 0) {
-      return res.status(404).json({ success: false, error: 'RWE not found.' });
-    }
-    res.json({ success: true, message: 'RWE deleted successfully.' });
+      const result = await client.del(hashKey);
+      if (result === 0) {
+          return res.status(404).json({ success: false, error: 'RWE not found.' });
+      }
+      res.json({ success: true, message: 'RWE deleted successfully.' });
   } catch (err) {
-    console.error('Error deleting RWE:', err);
-    res.status(500).json({ success: false, error: 'Error deleting RWE.' });
+      console.error('Error deleting RWE:', err);
+      res.status(500).json({ success: false, error: 'Error deleting RWE.' });
   }
 });
+
+app.get('/search-rwes', ensureAuthenticated, async (req, res) => {
+  const query = req.query.query ? req.query.query.toLowerCase() : '';
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = 9; // Adjust as necessary
+
+  try {
+    const allRwes = await getAllRwes(); // Fetch all RWEs
+
+    // Filter the RWEs based on the search query
+    const filteredRwes = allRwes.filter((rwe) =>
+      rwe.threat.toLowerCase().includes(query)
+    );
+
+    // Paginate the filtered results
+    const totalRwes = filteredRwes.length;
+    const totalPages = Math.ceil(totalRwes / pageSize);
+    const paginatedRwes = filteredRwes.slice(
+      (page - 1) * pageSize,
+      page * pageSize
+    );
+
+    res.json({ success: true, rwes: paginatedRwes, totalPages, currentPage: page });
+  } catch (err) {
+    console.error('Error searching RWEs:', err);
+    res.json({ success: false, error: 'Error searching RWEs' });
+  }
+});
+
 
 // Login route
 app.get('/login', (req, res) => {
