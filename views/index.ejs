@@ -34,6 +34,22 @@
     .modal-dialog {
       z-index: 1060;
     }
+    .autocomplete-suggestions {
+      position: absolute;
+      z-index: 1000;
+      background: white;
+      border: 1px solid #ccc;
+      max-height: 200px;
+      overflow-y: auto;
+      width: 100%;
+    }
+    .autocomplete-suggestion {
+      padding: 10px;
+      cursor: pointer;
+    }
+    .autocomplete-suggestion:hover {
+      background-color: #f8f9fa;
+    }
   </style>
 </head>
 <body>
@@ -45,9 +61,9 @@
       </svg>
       Home
     </a>
-    <a href="#" data-bs-toggle="modal" data-bs-target="#templateModal" onclick="fetchTemplate('template')">Edit Prompt</a>
-    <a href="#" data-bs-toggle="modal" data-bs-target="#summaryModal" onclick="fetchTemplate('summary')">Edit Summary</a>
-    <a href="#" data-bs-toggle="modal" data-bs-target="#userManagementModal">Manage Users</a>
+    <a href="#" data-bs-toggle="modal" data-bs-target="#promptsModal">Prompts</a>
+    <a href="#" data-bs-toggle="modal" data-bs-target="#reportModal">Report</a>
+    <a href="#" data-bs-toggle="modal" data-bs-target="#userManagementModal">Users</a>
     <a href="/logout">Logout</a>
   </div>
 
@@ -59,6 +75,10 @@
       <div class="card-body">
         <h5 class="card-title">Submit a New Threat Model</h5>
         <form id="threatModelForm" action="/ask" method="post" onsubmit="return handleFormSubmission(event)">
+          <div class="mb-3">
+            <label for="tm-prompt" class="form-label">TM Prompt</label>
+            <input type="text" class="form-control" id="tm-prompt" name="tm-prompt" readonly>
+          </div>
           <div class="mb-3">
             <label for="subject" class="form-label">Threat Model</label>
             <textarea class="form-control" id="subject" name="subject" rows="2" required></textarea>
@@ -75,12 +95,13 @@
             <label for="apiKey" class="form-label">ChatGPT API Key</label>
             <input type="text" class="form-control" id="apiKey" name="apiKey" value="<%= user.apiKey || '' %>" required>
           </div>
+          <input type="hidden" id="selectedPromptId" name="selectedPromptId">
           <button type="submit" class="btn btn-primary">Submit</button>
         </form>
       </div>
     </div>
 
-    <!-- Modal for editing the prompt -->
+    <!-- Modal for editing the prompt template -->
     <div class="modal fade" id="templateModal" tabindex="-1" aria-labelledby="templateModalLabel" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
@@ -104,86 +125,62 @@
       </div>
     </div>
 
-    <!-- Modal for editing the summary -->
-    <div class="modal fade" id="summaryModal" tabindex="-1" aria-labelledby="summaryModalLabel" aria-hidden="true">
+    <!-- Modal for managing users -->
+    <div class="modal fade" id="userManagementModal" tabindex="-1" aria-labelledby="userManagementModalLabel" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="summaryModalLabel">Edit Summary</h5>
+            <h5 class="modal-title" id="userManagementModalLabel">User Management</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body">
-            <form id="edit-summary-form">
-              <div class="mb-3">
-                <label for="prompt-summary" class="form-label">Summary Template</label>
-                <textarea class="form-control" id="prompt-summary" rows="6"></textarea>
-              </div>
-            </form>
+            <ul id="userList" class="list-group">
+              <!-- User list items will be injected here by fetchUsers -->
+            </ul>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            <button type="button" class="btn btn-primary" onclick="saveTemplate('summary')">Save changes</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Modal for managing users -->
-    <div class="modal fade" id="userManagementModal" tabindex="-1" aria-labelledby="userManagementModalLabel" aria-hidden="true">
-      <div class="modal-dialog">
-          <div class="modal-content">
-              <div class="modal-header">
-                  <h5 class="modal-title" id="userManagementModalLabel">User Management</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-              </div>
-              <div class="modal-body">
-                  <ul id="userList" class="list-group">
-                      <!-- User list items will be injected here by fetchUsers -->
-                  </ul>
-              </div>
-              <div class="modal-footer">
-                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-              </div>
-          </div>
-      </div>
-  </div>
-
     <!-- Modal for viewing and editing user details -->
     <div class="modal fade" id="userDetailsModal" tabindex="-1" aria-labelledby="userDetailsModalLabel" aria-hidden="true">
       <div class="modal-dialog">
-          <div class="modal-content">
-              <div class="modal-header">
-                  <h5 class="modal-title" id="userDetailsModalLabel">User Details</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-              </div>
-              <div class="modal-body">
-                  <form id="edit-user-form">
-                      <div class="mb-3">
-                          <label for="userName" class="form-label">Name</label>
-                          <input type="text" class="form-control" id="userName">
-                      </div>
-                      <div class="mb-3">
-                          <label for="userEmail" class="form-label">Email</label>
-                          <input type="email" class="form-control" id="userEmail" readonly>
-                      </div>
-                      <div class="mb-3">
-                          <label for="userRegistered" class="form-label">Registered</label>
-                          <input type="checkbox" class="form-check-input" id="userRegistered">
-                      </div>
-                      <div class="mb-3">
-                          <label for="userApiKey" class="form-label">ChatGPT API Key</label>
-                          <input type="text" class="form-control" id="userApiKey">
-                      </div>
-                  </form>
-              </div>
-              <div class="modal-footer">
-                  <button type="button" class="btn btn-danger" onclick="confirmDeleteUser()">Delete</button>
-                  <button type="button" class="btn btn-primary" onclick="updateUser()">Update</button>
-                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-              </div>
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="userDetailsModalLabel">User Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
+          <div class="modal-body">
+            <form id="edit-user-form">
+              <div class="mb-3">
+                <label for="userName" class="form-label">Name</label>
+                <input type="text" class="form-control" id="userName">
+              </div>
+              <div class="mb-3">
+                <label for="userEmail" class="form-label">Email</label>
+                <input type="email" class="form-control" id="userEmail" readonly>
+              </div>
+              <div class="mb-3">
+                <label for="userRegistered" class="form-label">Registered</label>
+                <input type="checkbox" class="form-check-input" id="userRegistered">
+              </div>
+              <div class="mb-3">
+                <label for="userApiKey" class="form-label">ChatGPT API Key</label>
+                <input type="text" class="form-control" id="userApiKey">
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-danger" onclick="confirmDeleteUser()">Delete</button>
+            <button type="button" class="btn btn-primary" onclick="updateUser()">Update</button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
       </div>
-  </div>
+    </div>
 
     <!-- Modal for confirming user deletion -->
     <div class="modal fade" id="confirmDeleteUserModal" tabindex="-1" aria-labelledby="confirmDeleteUserModalLabel" aria-hidden="true">
@@ -249,47 +246,184 @@
     </nav>
   </div>
 
-  <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-       <div class="modal-content">
-          <div class="modal-header">
-             <h5 class="modal-title" id="confirmDeleteModalLabel">Confirm Deletion</h5>
-             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+  <!-- Prompts List Modal -->
+  <div class="modal fade" id="promptsModal" tabindex="-1" aria-labelledby="promptsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="promptsModalLabel">Prompts List</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row" id="prompts-list">
+            <!-- Dynamically loaded prompts will be placed here -->
           </div>
-          <div class="modal-body">
-             <p id="deleteMessage">Are you sure you want to delete this item?</p>
-          </div>
-          <div class="modal-footer">
-             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No</button>
-             <button type="button" class="btn btn-danger" id="confirmDeleteButton">Yes</button>
-          </div>
-       </div>
-    </div>
- </div>
-
-
-    <!-- Loading Modal -->
-    <div class="modal fade" id="loadingModal" tabindex="-1" aria-labelledby="loadingModalLabel" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered">
-          <div class="modal-content">
-              <div class="modal-body text-center">
-                  <div class="spinner-border text-primary" role="status">
-                      <span class="visually-hidden">Processing...</span>
-                  </div>
-                  <p class="mt-3">Processing, please wait...</p>
-              </div>
-          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newPromptModal">Add Prompt</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
       </div>
     </div>
+  </div>
+
+  <!-- Modify Prompt Modal -->
+  <div class="modal fade" id="modifyPromptModal" tabindex="-1" aria-labelledby="modifyPromptModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modifyPromptModalLabel">Modify Prompt</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="modify-prompt-form">
+            <div class="mb-3">
+              <label for="prompt-title" class="form-label">Title</label>
+              <textarea class="form-control" id="prompt-title" rows="1" placeholder="Title"></textarea>
+            </div>
+            <div class="mb-3">
+              <label for="prompt-text" class="form-label">Prompt</label>
+              <textarea class="form-control" id="prompt-text" rows="6" placeholder="SUBJECT" style="height: 640px;"></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger" onclick="deletePrompt()">Delete</button>
+          <button type="button" class="btn btn-primary" onclick="updatePrompt()">Update</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Prompt Modal -->
+  <div class="modal fade" id="newPromptModal" tabindex="-1" aria-labelledby="newPromptModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="newPromptModalLabel">New Prompt</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="new-prompt-form">
+            <div class="mb-3">
+              <label for="new-prompt-title" class="form-label">Title</label>
+              <textarea class="form-control" id="new-prompt-title" rows="1" placeholder="Title"></textarea>
+            </div>
+            <div class="mb-3">
+              <label for="new-prompt-text" class="form-label">Prompt</label>
+              <textarea class="form-control" id="new-prompt-text" rows="6" placeholder="SUBJECT" style="height: 640px;"></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" onclick="saveNewPrompt()">Save Prompt</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Report List Modal -->
+  <div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="reportModalLabel">Report List</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row" id="report-list">
+            <!-- Dynamically loaded reports will be placed here -->
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newReportModal">Add Report</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modify Report Modal -->
+  <div class="modal fade" id="modifyReportModal" tabindex="-1" aria-labelledby="modifyReportModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modifyReportModalLabel">Modify Report</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="modify-report-form">
+            <div class="mb-3">
+              <label for="report-title" class="form-label">Title</label>
+              <textarea class="form-control" id="report-title" rows="1" placeholder="Title"></textarea>
+            </div>
+            <div class="mb-3">
+              <label for="report-text" class="form-label">Report</label>
+              <textarea class="form-control" id="report-text" rows="6" placeholder="Report" style="height: 640px;"></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger" onclick="deleteReport()">Delete</button>
+          <button type="button" class="btn btn-primary" onclick="updateReport()">Update</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Report Modal -->
+  <div class="modal fade" id="newReportModal" tabindex="-1" aria-labelledby="newReportModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="newReportModalLabel">New Report</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="new-report-form">
+            <div class="mb-3">
+              <label for="new-report-title" class="form-label">Title</label>
+              <textarea class="form-control" id="new-report-title" rows="1" placeholder="Title"></textarea>
+            </div>
+            <div class="mb-3">
+              <label for="new-report-text" class="form-label">Report</label>
+              <textarea class="form-control" id="new-report-text" rows="6" placeholder="Report" style="height: 640px;"></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" onclick="saveNewReport()">Save Report</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Modal -->
+  <div class="modal fade" id="loadingModal" tabindex="-1" aria-labelledby="loadingModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-body text-center">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Processing...</span>
+          </div>
+          <p class="mt-3">Processing, please wait...</p>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <% } else { %>
-    <div class="container mt-5">
-      <h1 class="text-center mb-5">Please Log In</h1>
-      <div class="d-flex justify-content-center">
-        <a href="/auth/google" class="btn btn-danger me-3">Login with Google</a>
-        <a href="/auth/github" class="btn btn-dark">Login with GitHub</a>
-      </div>
+  <div class="container mt-5">
+    <h1 class="text-center mb-5">Please Log In</h1>
+    <div class="d-flex justify-content-center">
+      <a href="/auth/google" class="btn btn-danger me-3">Login with Google</a>
+      <a href="/auth/github" class="btn btn-dark">Login with GitHub</a>
     </div>
+  </div>
   <% } %>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -305,17 +439,18 @@
       console.log('Subject:', form.subject.value);
       console.log('Model:', form.model.value);
       console.log('API Key:', form.apiKey.value);
+      console.log('Selected Prompt ID:', form.selectedPromptId.value);
 
       // Show the loading modal
       const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'), {
-          backdrop: 'static',
-          keyboard: false
+        backdrop: 'static',
+        keyboard: false
       });
       loadingModal.show();
 
       // Delay form submission slightly to allow the modal to display
       setTimeout(() => {
-          form.submit();
+        form.submit();
       }, 500); // 500ms delay
     }
 
@@ -345,41 +480,234 @@
     function confirmDelete(subjectid, title) {
       const deleteMessage = `Are you sure you want to delete this Threat Model: "${title}"?`;
       document.getElementById('deleteMessage').innerText = deleteMessage;
-
       const confirmDeleteButton = document.getElementById('confirmDeleteButton');
-      confirmDeleteButton.onclick = function() {
+      confirmDeleteButton.onclick = () => {
         deleteSubject(subjectid);
-        // Immediately reload the page after the deletion is initiated
-        setTimeout(() => {
-          window.location.href = window.location.href.split('?')[0] + '?' + new Date().getTime(); // Reload page with no cache
-        }, 500); // 500ms delay to ensure any UI updates are processed
+        const deleteModal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+        deleteModal.hide();
       };
-
       const deleteModal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
       deleteModal.show();
     }
 
     function deleteSubject(subjectid) {
-      console.log('Deleting subject with ID:', subjectid); // Log subject ID
       fetch('/delete-subjects', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ subjectsToDelete: subjectid })
+      }).then(() => {
+        location.reload();
+      });
+    }
+
+    function fetchPrompts() {
+      fetch('/prompts')
+        .then(response => response.json())
+        .then(data => {
+          const promptsList = document.getElementById('prompts-list');
+          promptsList.innerHTML = '';
+          data.prompts.forEach(prompt => {
+            const card = document.createElement('div');
+            card.className = 'col-md-4 mb-4';
+            card.innerHTML = `
+              <div class="card">
+                <div class="card-body">
+                  <h5 class="card-title">${prompt.title}</h5>
+                  <button class="btn btn-primary" onclick="viewPrompt(${prompt.id})">View</button>
+                  <button class="btn btn-secondary" onclick="selectPrompt(${prompt.id}, '${prompt.title}')">Select</button>
+                </div>
+              </div>
+            `;
+            promptsList.appendChild(card);
+          });
+        });
+    }
+
+    function viewPrompt(id) {
+      fetch(`/prompts/${id}`)
+        .then(response => response.json())
+        .then(data => {
+          document.getElementById('prompt-title').value = data.title;
+          document.getElementById('prompt-text').value = data.prompttext;
+          document.getElementById('modifyPromptModal').setAttribute('data-prompt-id', id);
+          const modifyPromptModal = new bootstrap.Modal(document.getElementById('modifyPromptModal'));
+          modifyPromptModal.show();
+        });
+    }
+
+    function selectPrompt(id, title) {
+      // Fill the TM Prompt field with the selected prompt's title
+      document.getElementById('tm-prompt').value = title;
+      // Store the selected prompt ID
+      document.getElementById('selectedPromptId').value = id;
+      // Close the modal
+      const promptsModal = bootstrap.Modal.getInstance(document.getElementById('promptsModal'));
+      promptsModal.hide();
+    }
+
+    function updatePrompt() {
+      const id = document.getElementById('modifyPromptModal').getAttribute('data-prompt-id');
+      const title = document.getElementById('prompt-title').value;
+      const prompttext = document.getElementById('prompt-text').value;
+
+      fetch(`/prompts/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ title, prompttext })
       })
       .then(response => {
-        if (!response.ok) {
-          return response.text().then(text => { throw new Error(text); });
+        if (response.ok) {
+          alert('Prompt updated successfully');
+          fetchPrompts();
+        } else {
+          alert('Failed to update prompt');
         }
-        return response.json();
+      });
+    }
+
+    function deletePrompt() {
+      const id = document.getElementById('modifyPromptModal').getAttribute('data-prompt-id');
+      if (confirm('Are you sure you want to delete this prompt?')) {
+        fetch(`/prompts/${id}`, {
+          method: 'DELETE'
+        })
+        .then(response => {
+          if (response.ok) {
+            alert('Prompt deleted successfully');
+            fetchPrompts();
+          } else {
+            alert('Failed to delete prompt');
+          }
+        });
+      }
+    }
+
+    function saveNewPrompt() {
+      const title = document.getElementById('new-prompt-title').value;
+      const prompttext = document.getElementById('new-prompt-text').value;
+
+      fetch('/prompts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ title, prompttext })
       })
-      .then(() => {
-        console.log('Subject deleted successfully'); // Log success message
+      .then(response => {
+        if (response.ok) {
+          alert('Prompt added successfully');
+          fetchPrompts();
+        } else {
+          alert('Failed to add prompt');
+        }
+      });
+    }
+
+    function fetchReports() {
+      fetch('/reports')
+        .then(response => response.json())
+        .then(data => {
+          const reportList = document.getElementById('report-list');
+          reportList.innerHTML = '';
+          data.reports.forEach(report => {
+            const card = document.createElement('div');
+            card.className = 'col-md-4 mb-4';
+            card.innerHTML = `
+              <div class="card">
+                <div class="card-body">
+                  <h5 class="card-title">${report.title}</h5>
+                  <button class="btn btn-primary" onclick="viewReport(${report.id})">View</button>
+                  <button class="btn btn-secondary" onclick="selectReport(${report.id}, '${report.title}')">Select</button>
+                </div>
+              </div>
+            `;
+            reportList.appendChild(card);
+          });
+        });
+    }
+
+    function viewReport(id) {
+      fetch(`/reports/${id}`)
+        .then(response => response.json())
+        .then(data => {
+          document.getElementById('report-title').value = data.title;
+          document.getElementById('report-text').value = data.reporttext;
+          document.getElementById('modifyReportModal').setAttribute('data-report-id', id);
+          const modifyReportModal = new bootstrap.Modal(document.getElementById('modifyReportModal'));
+          modifyReportModal.show();
+        });
+    }
+
+    function selectReport(id, title) {
+      // Fill the report title field with the selected report's title
+      document.getElementById('tm-prompt').value = title;
+      // Store the selected report ID (if necessary for further logic)
+      // Close the modal
+      const reportModal = bootstrap.Modal.getInstance(document.getElementById('reportModal'));
+      reportModal.hide();
+    }
+
+    function updateReport() {
+      const id = document.getElementById('modifyReportModal').getAttribute('data-report-id');
+      const title = document.getElementById('report-title').value;
+      const reporttext = document.getElementById('report-text').value;
+
+      fetch(`/reports/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ title, reporttext })
       })
-      .catch(error => {
-        console.error('Error deleting subject:', error);
-        // Optional: Display an error message to the user if needed
+      .then(response => {
+        if (response.ok) {
+          alert('Report updated successfully');
+          fetchReports();
+        } else {
+          alert('Failed to update report');
+        }
+      });
+    }
+
+    function deleteReport() {
+      const id = document.getElementById('modifyReportModal').getAttribute('data-report-id');
+      if (confirm('Are you sure you want to delete this report?')) {
+        fetch(`/reports/${id}`, {
+          method: 'DELETE'
+        })
+        .then(response => {
+          if (response.ok) {
+            alert('Report deleted successfully');
+            fetchReports();
+          } else {
+            alert('Failed to delete report');
+          }
+        });
+      }
+    }
+
+    function saveNewReport() {
+      const title = document.getElementById('new-report-title').value;
+      const reporttext = document.getElementById('new-report-text').value;
+
+      fetch('/reports', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ title, reporttext })
+      })
+      .then(response => {
+        if (response.ok) {
+          alert('Report added successfully');
+          fetchReports();
+        } else {
+          alert('Failed to add report');
+        }
       });
     }
 
@@ -402,28 +730,28 @@
     }
 
     function viewUserDetails(email) {
-        fetch(`/get-user?email=${encodeURIComponent(email)}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const user = data.user;
-                    document.getElementById('userName').value = user.name || '';
-                    document.getElementById('userEmail').value = user.email || '';
-                    document.getElementById('userRegistered').checked = user.registered === 'true';
-                    document.getElementById('userApiKey').value = user.apiKey || ''; // Load the API key into the field
-                    const userDetailsModal = new bootstrap.Modal(document.getElementById('userDetailsModal'));
-                    userDetailsModal.show();
-                } else {
-                    alert('Failed to fetch user details. Please try again.');
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching user details:', error);
-                alert('An error occurred while fetching user details.');
-            });
+      fetch(`/get-user?email=${encodeURIComponent(email)}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            const user = data.user;
+            document.getElementById('userName').value = user.name || '';
+            document.getElementById('userEmail').value = user.email || '';
+            document.getElementById('userRegistered').checked = user.registered === 'true';
+            document.getElementById('userApiKey').value = user.apiKey || '';
+            const userDetailsModal = new bootstrap.Modal(document.getElementById('userDetailsModal'));
+            userDetailsModal.show();
+          } else {
+            alert('Failed to fetch user details. Please try again.');
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching user details:', error);
+          alert('An error occurred while fetching user details.');
+        });
     }
 
-    async function deleteUser() {  // This is where the deleteUser function goes
+    async function deleteUser() {
       const email = document.getElementById('userEmail').value;
 
       try {
@@ -456,38 +784,37 @@
     }
 
     function updateUser() {
-        const email = document.getElementById('userEmail').value;
-        const name = document.getElementById('userName').value;
-        const registered = document.getElementById('userRegistered').checked ? 'true' : 'false';
-        const apiKey = document.getElementById('userApiKey').value; // Get the API key value
+      const email = document.getElementById('userEmail').value;
+      const name = document.getElementById('userName').value;
+      const registered = document.getElementById('userRegistered').checked ? 'true' : 'false';
+      const apiKey = document.getElementById('userApiKey').value;
 
-        fetch(`/update-user?email=${encodeURIComponent(email)}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ name, registered, apiKey }) // Include the API key in the update request
-        })
-        .then(response => {
-            if (response.ok) {
-                alert('User updated successfully.');
+      fetch(`/update-user?email=${encodeURIComponent(email)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name, registered, apiKey })
+      })
+      .then(response => {
+        if (response.ok) {
+          alert('User updated successfully.');
 
-                // Hide the user details modal
-                const userDetailsModal = bootstrap.Modal.getInstance(document.getElementById('userDetailsModal'));
-                userDetailsModal.hide();
+          // Hide the user details modal
+          const userDetailsModal = bootstrap.Modal.getInstance(document.getElementById('userDetailsModal'));
+          userDetailsModal.hide();
 
-                // Refresh the user list
-                fetchUsers();
-            } else {
-                alert('Error updating user.');
-            }
-        })
-        .catch(error => {
-            console.error('Error updating user:', error);
-            alert('Error updating user.');
-        });
+          // Refresh the user list
+          fetchUsers();
+        } else {
+          alert('Error updating user.');
+        }
+      })
+      .catch(error => {
+        console.error('Error updating user:', error);
+        alert('Error updating user.');
+      });
     }
-
 
     function confirmDeleteUser() {
       const email = document.getElementById('userEmail').value;
@@ -502,56 +829,34 @@
       fetch(`/delete-user?email=${encodeURIComponent(email)}`, {
         method: 'DELETE'
       })
-        .then(response => {
-          if (response.ok) {
-            alert('User deleted successfully.');
+      .then(response => {
+        if (response.ok) {
+          alert('User deleted successfully.');
 
-            // Hide the confirmation deletion modal
-            const confirmDeleteUserModal = bootstrap.Modal.getInstance(document.getElementById('confirmDeleteUserModal'));
-            confirmDeleteUserModal.hide();
+          // Hide the confirmation deletion modal
+          const confirmDeleteUserModal = bootstrap.Modal.getInstance(document.getElementById('confirmDeleteUserModal'));
+          confirmDeleteUserModal.hide();
 
-            // Hide the user details modal
-            const userDetailsModal = bootstrap.Modal.getInstance(document.getElementById('userDetailsModal'));
-            userDetailsModal.hide();
+          // Hide the user details modal
+          const userDetailsModal = bootstrap.Modal.getInstance(document.getElementById('userDetailsModal'));
+          userDetailsModal.hide();
 
-            // Refresh the user list
-            fetchUsers();
-          } else {
-            alert('Error deleting user.');
-          }
-        })
-        .catch(error => {
-          console.error('Error deleting user:', error);
-          alert('An error occurred while deleting the user.');
-        });
+          // Refresh the user list
+          fetchUsers();
+        } else {
+          alert('Error deleting user.');
+        }
+      })
+      .catch(error => {
+        console.error('Error deleting user:', error);
+        alert('An error occurred while deleting the user.');
+      });
     }
-
-    function fetchTemplate(type) {
-      let url;
-      let textareaId;
-
-      if (type === 'template') {
-        url = '/template';
-        textareaId = 'prompt-template';
-      } else if (type === 'summary') {
-        url = '/summary';
-        textareaId = 'prompt-summary';
-      }
-
-      fetch(url)
-        .then(response => response.text())
-        .then(data => {
-          document.getElementById(textareaId).value = data;
-        })
-        .catch(error => {
-          console.error(`Error fetching ${type}:`, error);
-          alert(`Failed to load ${type}. Please try again.`);
-        });
-    }
-
 
     // Initialize event listeners
     document.getElementById('userManagementModal').addEventListener('show.bs.modal', fetchUsers);
+    document.getElementById('promptsModal').addEventListener('show.bs.modal', fetchPrompts);
+    document.getElementById('reportModal').addEventListener('show.bs.modal', fetchReports);
   </script>
 </body>
 </html>

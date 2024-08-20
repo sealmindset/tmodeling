@@ -103,6 +103,9 @@
         <% if (summary) { %>
           <button class="nav-link btn btn-link p-0" onclick="viewSummary('<%= subjectid %>')"><i class="fa fa-eye"></i> View Summary</button>
         <% } %>
+        <!-- Add Report Button -->
+        <span class="nav-label">Report</span>
+        <button class="nav-link btn btn-link p-0" data-bs-toddggle="modal" onclick="fetchReports()"><i class="fa fa-file-text"></i>Report Format</button>
         <span class="nav-label">Common Wording</span>
         <button class="nav-link btn btn-link p-0" onclick="showRweModal('Add')"><i class="fa fa-plus"></i> New RWE</button>
         <button class="nav-link btn btn-link p-0" onclick="listRwes()"><i class="fa fa-edit"></i> Update RWE</button>
@@ -145,6 +148,48 @@
         <br>
         <button class="btn btn-secondary" onclick="closeSummaryDialog()">Close</button>
         <button class="btn btn-primary" onclick="saveSummary('<%= subjectid %>')">Save</button>
+      </div>
+
+<!-- Report List Modal -->
+<div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+          <div class="modal-header">
+              <h5 class="modal-title" id="reportModalLabel">List of Reports</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+              <div id="report-list" class="row"></div> <!-- Ensure this ID matches the one in your JavaScript -->
+          </div>
+      </div>
+  </div>
+</div>
+
+
+      
+
+      <!-- Modify Report Modal -->
+      <div class="modal fade" id="modifyReportModal" tabindex="-1" aria-labelledby="modifyReportModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="modifyReportModalLabel">Modify Report</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="report-title" class="form-label">Title</label>
+                <textarea id="report-title" class="form-control" rows="1"></textarea>
+              </div>
+              <div class="mb-3">
+                <label for="report-text" class="form-label">Report</label>
+                <textarea id="report-text" class="form-control" rows="10" style="height: 640px;"></textarea>
+              </div>
+              <button type="button" class="btn btn-primary" onclick="updateReport()">Update</button>
+              <button type="button" class="btn btn-danger" onclick="deleteReport()">Delete</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Loading Modal -->
@@ -509,341 +554,336 @@
     });
 });
 
+function adjustTextareaHeight(textarea) {
+  textarea.style.height = 'auto'; // Reset height to auto to calculate the new height correctly
+  textarea.style.height = `${Math.min(textarea.scrollHeight, 800)}px`; // Set the height to the scroll height
+  if (textarea.scrollHeight > 800) {
+    textarea.style.overflowY = 'scroll'; // Enable vertical scrolling if height exceeds 800px
+  } else {
+    textarea.style.overflowY = 'hidden'; // Disable vertical scrolling if height is less than 800px
+  }
+}
 
+function showSummaryDialog(content = '') {
+  const dialog = document.getElementById('summaryDialog');
+  const textarea = document.getElementById('summaryContent');
+  textarea.value = content;
+  adjustTextareaHeight(textarea);
+  dialog.style.display = 'block';
+}
 
+function closeSummaryDialog() {
+  const dialog = document.getElementById('summaryDialog');
+  dialog.style.display = 'none';
+}
 
+function saveSummary(subjectid) {
+  const textarea = document.getElementById('summaryContent');
+  const summary = textarea.value;
 
-    function adjustTextareaHeight(textarea) {
-      textarea.style.height = 'auto'; // Reset height to auto to calculate the new height correctly
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 800)}px`; // Set the height to the scroll height
-      if (textarea.scrollHeight > 800) {
-        textarea.style.overflowY = 'scroll'; // Enable vertical scrolling if height exceeds 800px
+  fetch('/save-modified-summary', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ subjectid, summary })
+  }).then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        closeSummaryDialog();
+        alert('Summary saved successfully!');
       } else {
-        textarea.style.overflowY = 'hidden'; // Disable vertical scrolling if height is less than 800px
+        alert('Error saving summary');
       }
-    }
+    });
+}
 
-    function showSummaryDialog(content = '') {
-      const dialog = document.getElementById('summaryDialog');
-      const textarea = document.getElementById('summaryContent');
-      textarea.value = content;
-      adjustTextareaHeight(textarea);
-      dialog.style.display = 'block';
-    }
+function generateSummary(subjectid) {
+  const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'), {
+    backdrop: 'static',
+    keyboard: false
+  });
+  loadingModal.show();
 
-    function closeSummaryDialog() {
-      const dialog = document.getElementById('summaryDialog');
-      dialog.style.display = 'none';
-    }
-
-    function saveSummary(subjectid) {
-      const textarea = document.getElementById('summaryContent');
-      const summary = textarea.value;
-
-      fetch('/save-modified-summary', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ subjectid, summary })
-      }).then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            closeSummaryDialog();
-            alert('Summary saved successfully!');
-          } else {
-            alert('Error saving summary');
-          }
-        });
-    }
-
-    function generateSummary(subjectid) {
-      const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'), {
-        backdrop: 'static',
-        keyboard: false
-      });
-      loadingModal.show();
-
-      fetch('/generate-summary', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ subjectid })
-      }).then(response => response.json())
-        .then(data => {
-          loadingModal.hide();
-          if (data.success) {
-            showSummaryDialog(data.summary);
-          } else {
-            alert('Error generating summary');
-          }
-        });
-    }
-
-    function viewSummary(subjectid) {
-      fetch(`/get-summary?subjectid=${encodeURIComponent(subjectid)}`)
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            showSummaryDialog(data.summary);
-          } else {
-            alert('Error retrieving summary');
-          }
-        });
-    }
-
-    function showLoadingModal() {
-      const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'), {
-        backdrop: 'static',
-        keyboard: false
-      });
-      loadingModal.show();
-    }
-
-    async function reformatResponse() {
-      try {
-        const response = await fetch('/results-format');
-        const replacements = await response.json();
-
-        const responseTextarea = document.getElementById('editedResponse');
-        let responseContent = responseTextarea.value;
-
-        // Remove any single asterisks
-        responseContent = responseContent.replace(/\*/g, '');
-
-        // Apply the replacements
-        replacements.forEach(({ pattern, replacement }) => {
-          const regex = new RegExp(pattern, 'gmi');
-          responseContent = responseContent.replace(regex, replacement);
-        });
-
-        // Ensure blank lines are maintained between sections
-        responseContent = responseContent.replace(/(\n\n)([A-Za-z].*?):/g, '$1\n$2:');
-
-        responseTextarea.value = responseContent;
-        adjustTextareaHeight(responseTextarea);
-      } catch (error) {
-        console.error('Error fetching format:', error);
+  fetch('/generate-summary', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ subjectid })
+  }).then(response => response.json())
+    .then(data => {
+      loadingModal.hide();
+      if (data.success) {
+        showSummaryDialog(data.summary);
+      } else {
+        alert('Error generating summary');
       }
-    }
+    });
+}
 
-    function findAndReplace() {
-      const findReplaceDialog = document.getElementById('findReplaceDialog');
-      findReplaceDialog.style.display = 'block';
-    }
-
-    function closeFindReplaceDialog() {
-      const findReplaceDialog = document.getElementById('findReplaceDialog');
-      findReplaceDialog.style.display = 'none';
-    }
-
-    function executeFindReplace() {
-      const findText = document.getElementById('findText').value;
-      const replaceText = document.getElementById('replaceText').value;
-
-      if (findText !== '') {
-        const responseTextarea = document.getElementById('editedResponse');
-        let responseContent = responseTextarea.value;
-
-        const regex = new RegExp(findText, 'g');
-        responseContent = responseContent.replace(regex, replaceText);
-
-        responseTextarea.value = responseContent;
-        adjustTextareaHeight(responseTextarea);
+function viewSummary(subjectid) {
+  fetch(`/get-summary?subjectid=${encodeURIComponent(subjectid)}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        showSummaryDialog(data.summary);
+      } else {
+        alert('Error retrieving summary');
       }
+    });
+}
 
-      closeFindReplaceDialog();
-    }
+function showLoadingModal() {
+  const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'), {
+    backdrop: 'static',
+    keyboard: false
+  });
+  loadingModal.show();
+}
 
-    function showThreatsModal() {
-      const responseTextarea = document.getElementById('editedResponse');
-      const responseContent = responseTextarea.value;
+async function reformatResponse() {
+  try {
+    const response = await fetch('/results-format');
+    const replacements = await response.json();
 
-      const threatsList = document.getElementById('threatsList');
-      threatsList.innerHTML = ''; // Clear existing list items
+    const responseTextarea = document.getElementById('editedResponse');
+    let responseContent = responseTextarea.value;
 
-      const threatPattern = /## (.*?)\n/g;
-      let match;
-      while ((match = threatPattern.exec(responseContent)) !== null) {
-        const threatItem = document.createElement('li');
-        threatItem.className = 'list-group-item';
-        threatItem.innerHTML = `
-          <input type="checkbox" class="form-check-input me-1" value="${match.index}-${match[1]}">
-          ${match[1]}
-          <button type="button" class="btn btn-danger btn-sm float-end" onclick="showConfirmDeleteModal(${match.index}, '${match[1]}')">Delete</button>
-        `;
-        threatsList.appendChild(threatItem);
+    // Remove any single asterisks
+    responseContent = responseContent.replace(/\*/g, '');
+
+    // Apply the replacements
+    replacements.forEach(({ pattern, replacement }) => {
+      const regex = new RegExp(pattern, 'gmi');
+      responseContent = responseContent.replace(regex, replacement);
+    });
+
+    // Ensure blank lines are maintained between sections
+    responseContent = responseContent.replace(/(\n\n)([A-Za-z].*?):/g, '$1\n$2:');
+
+    responseTextarea.value = responseContent;
+    adjustTextareaHeight(responseTextarea);
+  } catch (error) {
+    console.error('Error fetching format:', error);
+  }
+}
+
+function findAndReplace() {
+  const findReplaceDialog = document.getElementById('findReplaceDialog');
+  findReplaceDialog.style.display = 'block';
+}
+
+function closeFindReplaceDialog() {
+  const findReplaceDialog = document.getElementById('findReplaceDialog');
+  findReplaceDialog.style.display = 'none';
+}
+
+function executeFindReplace() {
+  const findText = document.getElementById('findText').value;
+  const replaceText = document.getElementById('replaceText').value;
+
+  if (findText !== '') {
+    const responseTextarea = document.getElementById('editedResponse');
+    let responseContent = responseTextarea.value;
+
+    const regex = new RegExp(findText, 'g');
+    responseContent = responseContent.replace(regex, replaceText);
+
+    responseTextarea.value = responseContent;
+    adjustTextareaHeight(responseTextarea);
+  }
+
+  closeFindReplaceDialog();
+}
+
+function showThreatsModal() {
+  const responseTextarea = document.getElementById('editedResponse');
+  const responseContent = responseTextarea.value;
+
+  const threatsList = document.getElementById('threatsList');
+  threatsList.innerHTML = ''; // Clear existing list items
+
+  const threatPattern = /## (.*?)\n/g;
+  let match;
+  while ((match = threatPattern.exec(responseContent)) !== null) {
+    const threatItem = document.createElement('li');
+    threatItem.className = 'list-group-item';
+    threatItem.innerHTML = `
+      <input type="checkbox" class="form-check-input me-1" value="${match.index}-${match[1]}">
+      ${match[1]}
+      <button type="button" class="btn btn-danger btn-sm float-end" onclick="showConfirmDeleteModal(${match.index}, '${match[1]}')">Delete</button>
+    `;
+    threatsList.appendChild(threatItem);
+  }
+
+  const threatsModal = new bootstrap.Modal(document.getElementById('threatsModal'));
+  threatsModal.show();
+}
+
+function showConfirmDeleteModal(position, title) {
+  const responseTextarea = document.getElementById('editedResponse');
+  const responseContent = responseTextarea.value;
+  
+  const threatPattern = new RegExp(`## ${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n([\\s\\S]*?)(?=\\n## |$)`);
+  const threatMatch = responseContent.substring(position).match(threatPattern);
+  
+  threatToDelete = {
+    position,
+    title,
+    details: threatMatch ? threatMatch[0] : ''
+  };
+
+  document.getElementById('threatDetails').textContent = threatToDelete.details;
+  const confirmDeleteThreatModal = new bootstrap.Modal(document.getElementById('confirmDeleteThreatModal'));
+  confirmDeleteThreatModal.show();
+}
+
+function confirmDeleteThreat() {
+  if (threatToDelete) {
+    const responseTextarea = document.getElementById('editedResponse');
+    let responseContent = responseTextarea.value;
+    responseContent = responseContent.replace(threatToDelete.details, '');
+    responseTextarea.value = responseContent;
+    adjustTextareaHeight(responseTextarea);
+
+    saveContent(); // Call the save function after deletion
+
+    const confirmDeleteThreatModal = bootstrap.Modal.getInstance(document.getElementById('confirmDeleteThreatModal'));
+    confirmDeleteThreatModal.hide();
+    threatToDelete = null;
+  }
+}
+
+function saveContent() {
+  const subjectid = document.querySelector('input[name="subjectid"]').value;
+  const editedResponse = document.getElementById('editedResponse').value;
+  const subjectText = document.getElementById('subject').value;
+  const title = document.getElementById('title').value;
+
+  fetch('/edit', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      subjectid,
+      subjectText,
+      editedResponse,
+      title
+    })
+  }).then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        alert('Content saved successfully!');
+      } else {
+        alert('Error saving content');
       }
+    });
+}
 
-      const threatsModal = new bootstrap.Modal(document.getElementById('threatsModal'));
-      threatsModal.show();
+function compareSelectedThreats() {
+  const selectedThreats = Array.from(document.querySelectorAll('#threatsList input:checked'))
+    .map(input => input.value.split('-').map((item, index) => index === 0 ? parseInt(item, 10) : item));
+
+  if (selectedThreats.length !== 2) {
+    alert('Please select exactly two threats to compare.');
+    return;
+  }
+
+  const responseTextarea = document.getElementById('editedResponse');
+  const responseContent = responseTextarea.value;
+
+  const compareContent = document.getElementById('compareContent');
+  compareContent.innerHTML = ''; // Clear existing compare content
+
+  selectedThreats.forEach((threat, index) => {
+    const [position, title] = threat;
+    const threatPattern = new RegExp(`## ${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n([\\s\\S]*?)(?=\\n## |$)`);
+    const threatMatch = responseContent.substring(position).match(threatPattern);
+
+    if (threatMatch) {
+      const threatDetails = document.createElement('div');
+      threatDetails.className = 'col-md-6';
+      threatDetails.innerHTML = `
+        <h5>${title}</h5>
+        <textarea class="form-control threat-content threat-markdown" data-position="${position}" data-title="${title}">${threatMatch[1]}</textarea>
+      `;
+      compareContent.appendChild(threatDetails);
     }
+  });
 
-    function showConfirmDeleteModal(position, title) {
-      const responseTextarea = document.getElementById('editedResponse');
-      const responseContent = responseTextarea.value;
-      
-      const threatPattern = new RegExp(`## ${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n([\\s\\S]*?)(?=\\n## |$)`);
-      const threatMatch = responseContent.substring(position).match(threatPattern);
-      
-      threatToDelete = {
-        position,
-        title,
-        details: threatMatch ? threatMatch[0] : ''
-      };
+  const compareModal = new bootstrap.Modal(document.getElementById('compareModal'));
+  compareModal.show();
+  const threatsModalInstance = bootstrap.Modal.getInstance(document.getElementById('threatsModal'));
+  if (threatsModalInstance) {
+    threatsModalInstance.hide();
+  }
 
-      document.getElementById('threatDetails').textContent = threatToDelete.details;
-      const confirmDeleteThreatModal = new bootstrap.Modal(document.getElementById('confirmDeleteThreatModal'));
-      confirmDeleteThreatModal.show();
-    }
-
-    function confirmDeleteThreat() {
-      if (threatToDelete) {
-        const responseTextarea = document.getElementById('editedResponse');
-        let responseContent = responseTextarea.value;
-        responseContent = responseContent.replace(threatToDelete.details, '');
-        responseTextarea.value = responseContent;
-        adjustTextareaHeight(responseTextarea);
-
-        saveContent(); // Call the save function after deletion
-
-        const confirmDeleteThreatModal = bootstrap.Modal.getInstance(document.getElementById('confirmDeleteThreatModal'));
-        confirmDeleteThreatModal.hide();
-        threatToDelete = null;
+  // Initialize markdown editor for each threat textarea
+  document.querySelectorAll('.threat-markdown').forEach(textarea => {
+    $(textarea).markdown({
+      iconlibrary: 'fa',
+      additionalButtons: [
+        [{
+          name: "groupCustom",
+          data: [{
+            name: "cmdFindReplace",
+            toggle: true,
+            title: "Find and Replace",
+            icon: "fa fa-search",
+            callback: function(e) {
+              findAndReplace();
+            }
+          },
+          {
+            name: "cmdCopy",
+            toggle: true,
+            title: "Copy TM",
+            icon: "fa fa-copy",
+            callback: function(e) {
+              copyToClipboard('editedResponse');
+            }
+          }]
+        }]
+      ],
+      autofocus: false,
+      savable: false,
+      hiddenButtons: ['cmdPreview'],
+      onPreview: function() {
+        return false;
       }
-    }
+    });
 
-    function saveContent() {
-      const subjectid = document.querySelector('input[name="subjectid"]').value;
-      const editedResponse = document.getElementById('editedResponse').value;
-      const subjectText = document.getElementById('subject').value;
-      const title = document.getElementById('title').value;
+    // Hide the preview button with the magnifying glass icon
+    $(textarea).siblings('.md-editor').find('.btn[data-handler="bootstrap-markdown-cmdPreview"]').hide();
+  });
+}
 
-      fetch('/edit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          subjectid,
-          subjectText,
-          editedResponse,
-          title
-        })
-      }).then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            alert('Content saved successfully!');
-          } else {
-            alert('Error saving content');
-          }
-        });
-    }
+function parseAllThreats(content) {
+  const threats = {};
+  const threatPattern = /## (.*?)\n([\s\S]*?)(?=\n## |$)/g;
+  let match;
 
-    function compareSelectedThreats() {
-      const selectedThreats = Array.from(document.querySelectorAll('#threatsList input:checked'))
-        .map(input => input.value.split('-').map((item, index) => index === 0 ? parseInt(item, 10) : item));
+  while ((match = threatPattern.exec(content)) !== null) {
+    threats[match[1]] = match[2].trim();
+  }
 
-      if (selectedThreats.length !== 2) {
-        alert('Please select exactly two threats to compare.');
-        return;
-      }
+  return threats;
+}
 
-      const responseTextarea = document.getElementById('editedResponse');
-      const responseContent = responseTextarea.value;
+function copyToClipboard(elementId) {
+  const textarea = document.getElementById(elementId);
+  textarea.select();
+  document.execCommand('copy');
+  alert('Copied to clipboard!');
+}
 
-      const compareContent = document.getElementById('compareContent');
-      compareContent.innerHTML = ''; // Clear existing compare content
-
-      selectedThreats.forEach((threat, index) => {
-        const [position, title] = threat;
-        const threatPattern = new RegExp(`## ${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n([\\s\\S]*?)(?=\\n## |$)`);
-        const threatMatch = responseContent.substring(position).match(threatPattern);
-
-        if (threatMatch) {
-          const threatDetails = document.createElement('div');
-          threatDetails.className = 'col-md-6';
-          threatDetails.innerHTML = `
-            <h5>${title}</h5>
-            <textarea class="form-control threat-content threat-markdown" data-position="${position}" data-title="${title}">${threatMatch[1]}</textarea>
-          `;
-          compareContent.appendChild(threatDetails);
-        }
-      });
-
-      const compareModal = new bootstrap.Modal(document.getElementById('compareModal'));
-      compareModal.show();
-      const threatsModalInstance = bootstrap.Modal.getInstance(document.getElementById('threatsModal'));
-      if (threatsModalInstance) {
-        threatsModalInstance.hide();
-      }
-
-      // Initialize markdown editor for each threat textarea
-      document.querySelectorAll('.threat-markdown').forEach(textarea => {
-        $(textarea).markdown({
-          iconlibrary: 'fa',
-          additionalButtons: [
-            [{
-              name: "groupCustom",
-              data: [{
-                name: "cmdFindReplace",
-                toggle: true,
-                title: "Find and Replace",
-                icon: "fa fa-search",
-                callback: function(e) {
-                  findAndReplace();
-                }
-              },
-              {
-                name: "cmdCopy",
-                toggle: true,
-                title: "Copy TM",
-                icon: "fa fa-copy",
-                callback: function(e) {
-                  copyToClipboard('editedResponse');
-                }
-              }]
-            }]
-          ],
-          autofocus: false,
-          savable: false,
-          hiddenButtons: ['cmdPreview'],
-          onPreview: function() {
-            return false;
-          }
-        });
-
-        // Hide the preview button with the magnifying glass icon
-        $(textarea).siblings('.md-editor').find('.btn[data-handler="bootstrap-markdown-cmdPreview"]').hide();
-      });
-    }
-
-    function parseAllThreats(content) {
-      const threats = {};
-      const threatPattern = /## (.*?)\n([\s\S]*?)(?=\n## |$)/g;
-      let match;
-
-      while ((match = threatPattern.exec(content)) !== null) {
-        threats[match[1]] = match[2].trim();
-      }
-
-      return threats;
-    }
-
-    function copyToClipboard(elementId) {
-      const textarea = document.getElementById(elementId);
-      textarea.select();
-      document.execCommand('copy');
-      alert('Copied to clipboard!');
-    }
-
-    function showRweModal(action) {
-      if (action === 'Add') {
-        $('#addRweModal').modal('show');
-      }
-    }
-
+function showRweModal(action) {
+  if (action === 'Add') {
+    $('#addRweModal').modal('show');
+  }
+}
 
 function debounceThrottle(func, wait, throttleLimit) {
     let timeout, lastCall = 0;
@@ -874,229 +914,352 @@ document.getElementById('rwe-search-bar').addEventListener('input', debounceThro
     listRwes(1, query); // Call the search function
 }, 10000, 10000)); // 300ms debounce delay, 1000ms throttle limit
 
-    function listRwes(page = 1, query = '') {
-      const searchUrl = query.length > 0 
-        ? `/search-rwes?query=${encodeURIComponent(query)}&page=${page}` 
-        : `/list-rwes-paginated?page=${page}`;
+function listRwes(page = 1, query = '') {
+  const searchUrl = query.length > 0 
+    ? `/search-rwes?query=${encodeURIComponent(query)}&page=${page}` 
+    : `/list-rwes-paginated?page=${page}`;
 
-      fetch(searchUrl)
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            const rweCardContainer = document.getElementById('rweCardContainer');
-            rweCardContainer.innerHTML = '';
+  fetch(searchUrl)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        const rweCardContainer = document.getElementById('rweCardContainer');
+        rweCardContainer.innerHTML = '';
 
-            data.rwes.forEach(rwe => {
-              const rweCard = document.createElement('div');
-              rweCard.className = 'col-md-4';
-              rweCard.innerHTML = `
-                <div class="card mb-4">
-                  <div class="card-body">
-                    <h5 class="card-title">${rwe.threat}</h5>
-                    <p class="card-text">${rwe.description.substring(0, 100)}...</p>
-                    <button type="button" class="btn btn-primary" onclick="editRwe(${rwe.rweid})">View</button>
-                    <button type="button" class="btn btn-danger" onclick="confirmDeleteRwe(${rwe.rweid})">Delete</button>
-                  </div>
-                </div>
-              `;
-              rweCardContainer.appendChild(rweCard);
-            });
-
-            const paginationControls = document.getElementById('paginationControls');
-            paginationControls.innerHTML = '';
-
-            for (let i = 1; i <= data.totalPages; i++) {
-              const pageItem = document.createElement('li');
-              pageItem.className = `page-item ${data.currentPage === i ? 'active' : ''}`;
-              pageItem.innerHTML = `<button class="page-link" onclick="listRwes(${i}, '${query}')">${i}</button>`;
-              paginationControls.appendChild(pageItem);
-            }
-
-            const listRweModal = new bootstrap.Modal(document.getElementById('listRweModal'));
-            listRweModal.show();
-          } else {
-            alert('Error listing RWEs.');
-          }
+        data.rwes.forEach(rwe => {
+          const rweCard = document.createElement('div');
+          rweCard.className = 'col-md-4';
+          rweCard.innerHTML = `
+            <div class="card mb-4">
+              <div class="card-body">
+                <h5 class="card-title">${rwe.threat}</h5>
+                <p class="card-text">${rwe.description.substring(0, 100)}...</p>
+                <button type="button" class="btn btn-primary" onclick="editRwe(${rwe.rweid})">View</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDeleteRwe(${rwe.rweid})">Delete</button>
+              </div>
+            </div>
+          `;
+          rweCardContainer.appendChild(rweCard);
         });
-    }
 
-    function editRwe(rweid) {
-      fetch(`/get-rwe/${rweid}`)
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            $('#modifyRweForm').data('rweid', rweid);
-            $('#modifyRweThreat').val(data.rwe.threat);
-            $('#modifyRweDescription').val(data.rwe.description);
-            $('#modifyRweReference').val(data.rwe.reference);
+        const paginationControls = document.getElementById('paginationControls');
+        paginationControls.innerHTML = '';
 
-            const modifyRweModal = new bootstrap.Modal(document.getElementById('modifyRweModal'));
-            modifyRweModal.show();
-            const listRweModalInstance = bootstrap.Modal.getInstance(document.getElementById('listRweModal'));
-            if (listRweModalInstance) {
-              listRweModalInstance.hide();
-            }
-          } else {
-            alert('Error getting RWE.');
-          }
-        });
-    }
+        for (let i = 1; i <= data.totalPages; i++) {
+          const pageItem = document.createElement('li');
+          pageItem.className = `page-item ${data.currentPage === i ? 'active' : ''}`;
+          pageItem.innerHTML = `<button class="page-link" onclick="listRwes(${i}, '${query}')">${i}</button>`;
+          paginationControls.appendChild(pageItem);
+        }
 
-    function closeModifyRweModal() {
-    const modifyRweModal = bootstrap.Modal.getInstance(document.getElementById('modifyRweModal'));
-    if (modifyRweModal) {
-        modifyRweModal.hide();
-        // Ensure backdrop is removed
-        document.body.classList.remove('modal-open');
-        const backdrops = document.querySelectorAll('.modal-backdrop');
-        backdrops.forEach(backdrop => backdrop.remove());
-    }
+        const listRweModal = new bootstrap.Modal(document.getElementById('listRweModal'));
+        listRweModal.show();
+      } else {
+        alert('Error listing RWEs.');
+      }
+    });
+}
+
+function editRwe(rweid) {
+  fetch(`/get-rwe/${rweid}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        $('#modifyRweForm').data('rweid', rweid);
+        $('#modifyRweThreat').val(data.rwe.threat);
+        $('#modifyRweDescription').val(data.rwe.description);
+        $('#modifyRweReference').val(data.rwe.reference);
+
+        const modifyRweModal = new bootstrap.Modal(document.getElementById('modifyRweModal'));
+        modifyRweModal.show();
+        const listRweModalInstance = bootstrap.Modal.getInstance(document.getElementById('listRweModal'));
+        if (listRweModalInstance) {
+          listRweModalInstance.hide();
+        }
+      } else {
+        alert('Error getting RWE.');
+      }
+    });
+}
+
+function closeModifyRweModal() {
+const modifyRweModal = bootstrap.Modal.getInstance(document.getElementById('modifyRweModal'));
+if (modifyRweModal) {
+    modifyRweModal.hide();
+    // Ensure backdrop is removed
+    document.body.classList.remove('modal-open');
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    backdrops.forEach(backdrop => backdrop.remove());
+}
 }
 
 document.getElementById('modifyRweForm').addEventListener('submit', function(event) {
-    event.preventDefault();
-    const rweid = $(this).data('rweid'); // Retrieve the rweid stored in the modal
-    const threat = document.getElementById('modifyRweThreat').value;
-    const description = document.getElementById('modifyRweDescription').value;
-    const reference = document.getElementById('modifyRweReference').value;
+event.preventDefault();
+const rweid = $(this).data('rweid'); // Retrieve the rweid stored in the modal
+const threat = document.getElementById('modifyRweThreat').value;
+const description = document.getElementById('modifyRweDescription').value;
+const reference = document.getElementById('modifyRweReference').value;
 
-    fetch(`/update-rwe/${rweid}`, {
+fetch(`/update-rwe/${rweid}`, {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ threat, description, reference })
+})
+.then(response => response.json())
+.then(data => {
+    if (data.success) {
+        alert('RWE updated successfully!');
+        closeModifyRweModal(); // Close modal on success
+    } else {
+        alert('Error updating RWE.');
+    }
+})
+.catch(error => {
+    console.error('Error updating RWE:', error);
+    alert('Error updating RWE.');
+});
+});
+
+function refreshRweList() {
+// Re-fetch the list of RWEs to refresh the UI
+listRwes();
+}
+
+function confirmDeleteRwe() {
+const rweid = $('#modifyRweForm').data('rweid');
+console.log('Attempting to delete RWE with id:', rweid);
+
+fetch(`/delete-rwe/${rweid}`, {
+    method: 'DELETE',
+    headers: {
+        'Content-Type': 'application/json'
+    }
+})
+.then(response => response.json())
+.then(data => {
+    console.log('Delete response:', data);
+    if (data.success) {
+        alert('RWE deleted successfully!');
+        closeModifyRweModal();
+        listRwes(); // Refresh the RWE list to show changes
+    } else {
+        alert('Error deleting RWE: ' + data.error);
+    }
+})
+.catch(error => {
+    console.error('Error deleting RWE:', error);
+    alert('Error deleting RWE.');
+});
+}
+
+function closeModifyRweModal() {
+const modifyRweModal = bootstrap.Modal.getInstance(document.getElementById('modifyRweModal'));
+if (modifyRweModal) {
+    modifyRweModal.hide();
+}
+document.body.classList.remove('modal-open');
+const backdrops = document.querySelectorAll('.modal-backdrop');
+backdrops.forEach(backdrop => backdrop.remove());
+}
+
+// General function to close any modal by ID
+function closeModal(modalId) {
+const modalElement = document.getElementById(modalId);
+if (modalElement) {
+    const modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
+    modalInstance.hide();
+
+    // Ensure the modal and background are completely reset
+    document.body.classList.remove('modal-open');
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    backdrops.forEach(backdrop => backdrop.remove());
+}
+}
+
+// Example usage:
+function closeModifyRweModal() {
+closeModal('modifyRweModal');
+}
+
+function closeListRweModal() {
+const listRweModal = bootstrap.Modal.getInstance(document.getElementById('listRweModal'));
+if (listRweModal) {
+    listRweModal.hide();
+}
+document.body.classList.remove('modal-open');
+const backdrops = document.querySelectorAll('.modal-backdrop');
+backdrops.forEach(backdrop => backdrop.remove());
+}
+
+function debounce(func, delay) {
+let timeout;
+return function(...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), delay);
+};
+}
+
+function applyRwe() {
+  const responseTextarea = document.getElementById('editedResponse');
+  let responseContent = responseTextarea.value;
+
+  fetch('/list-rwes')
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        data.rwes.forEach(rwe => {
+          const threatPattern = new RegExp(`(## Threat: ${rwe.threat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} ##)([\\s\\S]*?)(## |$)`, 'g');
+
+          responseContent = responseContent.replace(threatPattern, (match, p1, p2, p3) => {
+            const updatedSection = p2.replace(/(\*\*Real-World Example:\*\*[\s\S]*?)(?=\*\*Impact if Exploited:\*\*|$)/, `**Real-World Example:** ${rwe.description} Reference: ${rwe.reference}\n\n`);
+            return `${p1}${updatedSection}${p3}`;
+          });
+        });
+
+        responseTextarea.value = responseContent;
+        adjustTextareaHeight(responseTextarea);
+      } else {
+        alert('Error applying RWEs.');
+      }
+    })
+    .catch(error => {
+      console.error('Error fetching RWEs:', error);
+      alert('Error applying RWEs.');
+    });
+}
+
+function fetchReports() {
+    fetch('/list-reports')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const reportList = document.getElementById('report-list');
+                reportList.innerHTML = ''; // Clear existing content
+
+                data.reports.forEach(report => {
+                    const reportCard = document.createElement('div');
+                    reportCard.className = 'col-md-4';
+                    reportCard.innerHTML = `
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="card-title">${report.reporttitle}</h5>
+                                <button type="button" class="btn btn-primary" onclick="viewReport('${report.reportsid}')">View</button>
+                                <button type="button" class="btn btn-secondary" onclick="selectReport('${report.reportsid}')">Select</button>
+                            </div>
+                        </div>
+                    `;
+                    reportList.appendChild(reportCard);
+                });
+
+                const reportModal = new bootstrap.Modal(document.getElementById('reportModal'));
+                reportModal.show();
+            } else {
+                alert('Error listing reports.');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching reports:', error);
+            alert('Error fetching reports.');
+        });
+}
+
+
+function viewReport(reportsid) {
+    fetch(`/get-report/${reportsid}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('report-title').value = data.report.reporttitle;
+                document.getElementById('report-text').value = data.report.reporttext;
+                document.getElementById('modifyReportModal').setAttribute('data-reportsid', reportsid);
+
+                const modifyReportModal = new bootstrap.Modal(document.getElementById('modifyReportModal'));
+                modifyReportModal.show();
+            } else {
+                alert('Error retrieving report.');
+            }
+        })
+        .catch(error => {
+            console.error('Error viewing report:', error);
+            alert('Error viewing report.');
+        });
+}
+
+
+function updateReport() {
+    const reportsid = document.getElementById('modifyReportModal').getAttribute('data-reportsid');
+    const reporttitle = document.getElementById('report-title').value;
+    const reporttext = document.getElementById('report-text').value;
+
+    fetch(`/update-report/${reportsid}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ threat, description, reference })
+        body: JSON.stringify({ reporttitle, reporttext })
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('RWE updated successfully!');
-            closeModifyRweModal(); // Close modal on success
-        } else {
-            alert('Error updating RWE.');
-        }
-    })
-    .catch(error => {
-        console.error('Error updating RWE:', error);
-        alert('Error updating RWE.');
-    });
-});
-
-function refreshRweList() {
-    // Re-fetch the list of RWEs to refresh the UI
-    listRwes();
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Report updated successfully!');
+                const modifyReportModal = bootstrap.Modal.getInstance(document.getElementById('modifyReportModal'));
+                modifyReportModal.hide();
+            } else {
+                alert('Error updating report.');
+            }
+        })
+        .catch(error => {
+            console.error('Error updating report:', error);
+            alert('Error updating report.');
+        });
 }
 
-function confirmDeleteRwe() {
-    const rweid = $('#modifyRweForm').data('rweid');
-    console.log('Attempting to delete RWE with id:', rweid);
+function deleteReport() {
+    const reportsid = document.getElementById('modifyReportModal').getAttribute('data-reportsid');
 
-    fetch(`/delete-rwe/${rweid}`, {
+    fetch(`/delete-report/${reportsid}`, {
         method: 'DELETE',
         headers: {
             'Content-Type': 'application/json'
         }
     })
-    .then(response => response.json())
-    .then(data => {
-        console.log('Delete response:', data);
-        if (data.success) {
-            alert('RWE deleted successfully!');
-            closeModifyRweModal();
-            listRwes(); // Refresh the RWE list to show changes
-        } else {
-            alert('Error deleting RWE: ' + data.error);
-        }
-    })
-    .catch(error => {
-        console.error('Error deleting RWE:', error);
-        alert('Error deleting RWE.');
-    });
-}
-
-
-
-
-function closeModifyRweModal() {
-    const modifyRweModal = bootstrap.Modal.getInstance(document.getElementById('modifyRweModal'));
-    if (modifyRweModal) {
-        modifyRweModal.hide();
-    }
-    document.body.classList.remove('modal-open');
-    const backdrops = document.querySelectorAll('.modal-backdrop');
-    backdrops.forEach(backdrop => backdrop.remove());
-}
-
-
-// General function to close any modal by ID
-function closeModal(modalId) {
-    const modalElement = document.getElementById(modalId);
-    if (modalElement) {
-        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
-        modalInstance.hide();
-
-        // Ensure the modal and background are completely reset
-        document.body.classList.remove('modal-open');
-        const backdrops = document.querySelectorAll('.modal-backdrop');
-        backdrops.forEach(backdrop => backdrop.remove());
-    }
-}
-
-// Example usage:
-function closeModifyRweModal() {
-    closeModal('modifyRweModal');
-}
-
-function closeListRweModal() {
-    const listRweModal = bootstrap.Modal.getInstance(document.getElementById('listRweModal'));
-    if (listRweModal) {
-        listRweModal.hide();
-    }
-    document.body.classList.remove('modal-open');
-    const backdrops = document.querySelectorAll('.modal-backdrop');
-    backdrops.forEach(backdrop => backdrop.remove());
-}
-
-function debounce(func, delay) {
-    let timeout;
-    return function(...args) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(this, args), delay);
-    };
-}
-
-
-    function applyRwe() {
-      const responseTextarea = document.getElementById('editedResponse');
-      let responseContent = responseTextarea.value;
-
-      fetch('/list-rwes')
         .then(response => response.json())
         .then(data => {
-          if (data.success) {
-            data.rwes.forEach(rwe => {
-              const threatPattern = new RegExp(`(## Threat: ${rwe.threat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} ##)([\\s\\S]*?)(## |$)`, 'g');
-
-              responseContent = responseContent.replace(threatPattern, (match, p1, p2, p3) => {
-                const updatedSection = p2.replace(/(\*\*Real-World Example:\*\*[\s\S]*?)(?=\*\*Impact if Exploited:\*\*|$)/, `**Real-World Example:** ${rwe.description} Reference: ${rwe.reference}\n\n`);
-                return `${p1}${updatedSection}${p3}`;
-              });
-            });
-
-            responseTextarea.value = responseContent;
-            adjustTextareaHeight(responseTextarea);
-          } else {
-            alert('Error applying RWEs.');
-          }
+            if (data.success) {
+                alert('Report deleted successfully!');
+                const modifyReportModal = bootstrap.Modal.getInstance(document.getElementById('modifyReportModal'));
+                modifyReportModal.hide();
+                fetchReports(); // Refresh report list
+            } else {
+                alert('Error deleting report.');
+            }
         })
         .catch(error => {
-          console.error('Error fetching RWEs:', error);
-          alert('Error applying RWEs.');
+            console.error('Error deleting report:', error);
+            alert('Error deleting report.');
         });
-    }
+}
 
+function selectReport(reportsid) {
+    fetch(`/get-report/${reportsid}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('title').value = `${data.report.reportsid}: ${data.report.reporttitle}`;
+                const reportModal = bootstrap.Modal.getInstance(document.getElementById('reportModal'));
+                reportModal.hide();
+            } else {
+                alert('Error retrieving report.');
+            }
+        })
+        .catch(error => {
+            console.error('Error selecting report:', error);
+            alert('Error selecting report.');
+        });
+}
 
-
-  </script>
+</script>
 </body>
 </html>

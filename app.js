@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const naturalCompare = require('natural-compare');
 const session = require('express-session');
-const RedisStore = require('connect-redis').default; // Import connect-redis
+const RedisStore = require('connect-redis').default;
 const passport = require('passport');
 
 const app = express();
@@ -15,12 +15,6 @@ const port = process.env.PORT || 3000;
 
 const redisHost = process.env.REDIS_HOST || 'localhost';
 const redisPort = process.env.REDIS_PORT || 6379;
-// Commented out the statically assigned API key
-// const openaiApiKey = process.env.API_KEY;
-
-const promptTemplatePath = path.join(__dirname, 'prompt-template.txt');
-const promptSummaryPath = path.join(__dirname, 'prompt-summary.txt');
-const resultsFormatPath = path.join(__dirname, 'results-format.txt');
 
 const cors = require('cors');
 app.use(cors({
@@ -29,8 +23,6 @@ app.use(cors({
 }));
 
 console.log('Environment Variables:');
-// API key logging is commented out since it's no longer statically assigned
-// console.log(`API_KEY: ${openaiApiKey ? 'Set' : 'Not Set'}`);
 console.log(`REDIS_HOST: ${redisHost}`);
 console.log(`REDIS_PORT: ${redisPort}`);
 console.log(`PORT: ${port}`);
@@ -61,13 +53,13 @@ app.use(express.static('public'));
 // Session setup with RedisStore
 app.use(
   session({
-    store: new RedisStore({ client }), // Use RedisStore to store sessions
-    secret: process.env.SESSION_SECRET, // Use the secret from .env
+    store: new RedisStore({ client }),
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
-      maxAge: 1000 * 60 * 60 * 24, // 1 day in milliseconds
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 1000 * 60 * 60 * 24,
     },
   })
 );
@@ -75,7 +67,6 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Passport serialization
 passport.serializeUser((user, done) => {
   console.log('Serializing user:', user);
   done(null, user.email);
@@ -94,30 +85,29 @@ passport.deserializeUser(async (email, done) => {
 
 // Registration routes
 app.get('/register', (req, res) => {
-  res.render('register'); // Render the registration page
+  res.render('register');
 });
 
 app.post('/register', async (req, res) => {
-  const { name, email, apiKey } = req.body;  // Include apiKey in the request body
+  const { name, email, apiKey } = req.body;
 
   try {
     const userId = `user:${email}`;
     const userExists = await client.exists(userId);
 
     if (userExists) {
-      // Render the registration page with the modal trigger
       return res.render('register', { showModal: true });
     }
 
     await client.hSet(userId, {
       name,
       email,
-      apiKey,  // Save the API key with the user
-      registered: 'true', 
+      apiKey,
+      registered: 'true',
     });
 
     console.log(`User registered with email: ${email}`);
-    res.redirect('/login'); // Redirect to login after successful registration
+    res.redirect('/login');
   } catch (error) {
     console.error('Error registering user:', error);
     res.status(500).send('Error registering user.');
@@ -127,7 +117,6 @@ app.post('/register', async (req, res) => {
 // OAuth routes and strategies
 require('./auth')(app);
 
-// Middleware to ensure the user is authenticated
 function ensureAuthenticated(req, res, next) {
   console.log('Session:', req.session);
   console.log('User:', req.user);
@@ -140,9 +129,7 @@ function ensureAuthenticated(req, res, next) {
   res.redirect('/login');
 }
 
-const promptTemplate = fs.readFileSync(promptTemplatePath, 'utf-8');
-const promptSummary = fs.readFileSync(promptSummaryPath, 'utf-8');
-
+// Utility functions to interact with Redis
 const getAllSubjectsWithTitles = async () => {
   try {
     const keys = await client.keys('subject:*:title');
@@ -200,9 +187,127 @@ const getSubjectText = async (subjectid) => {
   }
 };
 
+// Reports Logic
+
+const getAllReports = async () => {
+  const keys = await client.keys('reports:*:reporttitle');
+  const reports = await Promise.all(
+    keys.map(async (key) => {
+      const id = key.split(':')[1];
+      const title = await client.get(key);
+      return { id, title };
+    })
+  );
+  return reports;
+};
+
+const getReportById = async (id) => {
+  const titleKey = `reports:${id}:reporttitle`;
+  const reportTextKey = `reports:${id}:reporttext`;
+  const title = await client.get(titleKey);
+  const reportText = await client.get(reportTextKey);
+  return { id, title, reporttext: reportText };
+};
+
+app.get('/list-reports', ensureAuthenticated, async (req, res) => {
+  try {
+      const keys = await client.keys('reports:*:reporttitle');
+      const reports = [];
+
+      for (const key of keys) {
+          const reportsid = key.split(':')[1];
+          const reporttitle = await client.get(key);
+          const reporttext = await client.get(`reports:${reportsid}:reporttext`);
+          reports.push({ reportsid, reporttitle, reporttext });
+      }
+
+      res.json({ success: true, reports });
+  } catch (err) {
+      console.error('Error listing reports:', err);
+      res.json({ success: false, error: 'Error listing reports.' });
+  }
+});
+
+app.get('/reports', ensureAuthenticated, async (req, res) => {
+  try {
+    const reports = await getAllReports();
+    res.json({ reports });
+  } catch (err) {
+    console.error('Error fetching reports:', err);
+    res.status(500).send('Error fetching reports.');
+  }
+});
+
+app.get('/reports/:id', ensureAuthenticated, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const report = await getReportById(id);
+    res.json(report);
+  } catch (err) {
+    console.error('Error fetching report:', err);
+    res.status(500).send('Error fetching report.');
+  }
+});
+
+app.post('/reports', ensureAuthenticated, async (req, res) => {
+  const { title, reporttext } = req.body;
+  try {
+    const newId = await client.incr('reports_id_counter');
+    await client.set(`reports:${newId}:reporttitle`, title);
+    await client.set(`reports:${newId}:reporttext`, reporttext);
+    res.sendStatus(201);
+  } catch (err) {
+    console.error('Error creating new report:', err);
+    res.status(500).send('Error creating new report.');
+  }
+});
+
+app.put('/reports/:id', ensureAuthenticated, async (req, res) => {
+  const { id } = req.params;
+  const { title, reporttext } = req.body;
+  try {
+    await client.set(`reports:${id}:reporttitle`, title);
+    await client.set(`reports:${id}:reporttext`, reporttext);
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('Error updating report:', err);
+    res.status(500).send('Error updating report.');
+  }
+});
+
+app.delete('/reports/:id', ensureAuthenticated, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await client.del(`reports:${id}:reporttitle`);
+    await client.del(`reports:${id}:reporttext`);
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('Error deleting report:', err);
+    res.status(500).send('Error deleting report.');
+  }
+});
+
+app.get('/get-report/:reportsid', ensureAuthenticated, async (req, res) => {
+  try {
+      const reportsid = req.params.reportsid;
+      const reporttitle = await client.get(`reports:${reportsid}:reporttitle`);
+      const reporttext = await client.get(`reports:${reportsid}:reporttext`);
+
+      if (reporttitle && reporttext) {
+          res.json({ success: true, report: { reporttitle, reporttext } });
+      } else {
+          res.json({ success: false, error: 'Report not found' });
+      }
+  } catch (err) {
+      console.error('Error retrieving report:', err);
+      res.json({ success: false, error: 'Error retrieving report' });
+  }
+});
+
+
 app.get('/', ensureAuthenticated, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
-  const pageSize = 8;
+  const pageSize = 10;
 
   try {
     let subjectsWithTitles = await getAllSubjectsWithTitles();
@@ -238,16 +343,25 @@ app.post('/ask', ensureAuthenticated, async (req, res) => {
   const subjectText = req.body.subject;
   const model = req.body.model || 'gpt-4';
   const apiKey = req.body.apiKey || req.user.apiKey; // Use provided API key or user's saved key
+  const selectedPromptId = req.body.selectedPromptId;
 
   try {
+      // Fetch the prompt text from Redis based on the selectedPromptId
+      let prompt;
+      if (selectedPromptId) {
+          prompt = await client.get(`prompts:${selectedPromptId}:prompttext`);
+          if (!prompt) {
+              throw new Error('Selected prompt not found.');
+          }
+      } else {
+          throw new Error('No prompt selected.');
+      }
+
       const subjectid = await client.incr('subject_id_counter');
       const cacheKey = `subject:${subjectid}:response`;
       const titleKey = `subject:${subjectid}:title`;
       const modelKey = `subject:${subjectid}:model`;
       const subjectKey = `subject:${subjectid}:text`;
-
-      const promptTemplate = fs.readFileSync(promptTemplatePath, 'utf-8');
-      const prompt = promptTemplate.replace('SUBJECT', subjectText);
 
       let cachedResponse = await client.get(cacheKey);
       if (cachedResponse) {
@@ -257,12 +371,12 @@ app.post('/ask', ensureAuthenticated, async (req, res) => {
               'https://api.openai.com/v1/chat/completions',
               {
                   model,
-                  messages: [{ role: 'user', content: prompt }],
+                  messages: [{ role: 'user', content: prompt.replace('SUBJECT', subjectText) }],
               },
               {
                   headers: {
                       Authorization: `Bearer ${apiKey}`,
-                  }
+                  },
               }
           );
 
@@ -274,10 +388,17 @@ app.post('/ask', ensureAuthenticated, async (req, res) => {
           res.redirect(`/results?subjectid=${encodeURIComponent(subjectid)}`);
       }
   } catch (error) {
-      console.error('Error communicating with GPT-4 API:', error);
-      res.send('Error communicating with GPT-4 API.');
+      console.error('Error communicating with GPT-4 API:', error.message);
+      if (error.response) {
+          console.error('Response data:', error.response.data);
+          console.error('Response status:', error.response.status);
+      } else {
+          console.error('Request error:', error.message);
+      }
+      res.status(500).send('Error communicating with GPT-4 API.');
   }
 });
+
 
 app.get('/search-titles', ensureAuthenticated, async (req, res) => {
   const query = req.query.query.toLowerCase();
@@ -305,24 +426,22 @@ app.get('/results', ensureAuthenticated, async (req, res) => {
     summary = await getSummary(subjectid);
     model = await getModel(subjectid);
     subjectText = await getSubjectText(subjectid);
-    const rwes = await getAllRwes(); // Fetch all RWEs
-
-    res.render('results', {
-      subjectid,
-      subjectText,
-      response,
-      title,
-      summary,
-      model,
-      user: req.user,
-      rwes, // Pass all RWEs to the template
-    });
   } catch (error) {
     console.error('Error fetching response from Redis:', error);
     res.send('Error fetching response from Redis.');
+    return;
   }
-});
 
+  res.render('results', {
+    subjectid,
+    subjectText,
+    response,
+    title,
+    summary,
+    model,
+    user: req.user,
+  });
+});
 
 app.get('/get-summary', ensureAuthenticated, async (req, res) => {
   const { subjectid } = req.query;
@@ -361,14 +480,13 @@ app.post('/delete-subjects', ensureAuthenticated, async (req, res) => {
   const subjectsToDelete = req.body.subjectsToDelete;
 
   if (!subjectsToDelete) {
-    res.status(400).send('No subject specified for deletion.');
+    res.redirect('/');
     return;
   }
 
   try {
     const deletePromises = Array.isArray(subjectsToDelete)
       ? subjectsToDelete.map((subjectid) => {
-          console.log('Deleting subject ID:', subjectid); // Log each subject ID being deleted
           return Promise.all([
             client.del(`subject:${subjectid}:response`),
             client.del(`subject:${subjectid}:title`),
@@ -378,7 +496,6 @@ app.post('/delete-subjects', ensureAuthenticated, async (req, res) => {
           ]);
         })
       : [
-          console.log('Deleting single subject ID:', subjectsToDelete), // Log for a single subject ID
           client.del(`subject:${subjectsToDelete}:response`),
           client.del(`subject:${subjectsToDelete}:title`),
           client.del(`subject:${subjectsToDelete}:summary`),
@@ -399,39 +516,38 @@ app.post('/generate-more', ensureAuthenticated, async (req, res) => {
   const userEmail = req.user.email;
 
   try {
-      // Retrieve the stored API key
-      const apiKey = await client.hGet(`user:${userEmail}`, 'apiKey');
-      if (!apiKey) {
-          return res.status(400).send('API Key not found for user.');
+    const apiKey = await client.hGet(`user:${userEmail}`, 'apiKey');
+    if (!apiKey) {
+      return res.status(400).send('API Key not found for user.');
+    }
+
+    const existingResponse = await getFullResponse(subjectid);
+    const subjectText = await getSubjectText(subjectid);
+    const model = await getModel(subjectid);
+
+    const prompt = `${existingResponse}\nContinue generating more results:`;
+
+    let response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model,
+        messages: [{ role: 'user', content: prompt }],
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
       }
+    );
 
-      const existingResponse = await getFullResponse(subjectid);
-      const subjectText = await getSubjectText(subjectid);
-      const model = await getModel(subjectid);
+    const newResponse = response.data.choices[0].message.content;
+    const updatedResponse = `${existingResponse}\n\n${newResponse}`.trim();
 
-      const prompt = `${existingResponse}\nContinue generating more results:`;
-
-      let response = await axios.post(
-          'https://api.openai.com/v1/chat/completions',
-          {
-              model,
-              messages: [{ role: 'user', content: prompt }],
-          },
-          {
-              headers: {
-                  Authorization: `Bearer ${apiKey}`, // Use the stored API key
-              },
-          }
-      );
-
-      const newResponse = response.data.choices[0].message.content;
-      const updatedResponse = `${existingResponse}\n\n${newResponse}`.trim();
-
-      await client.set(`subject:${subjectid}:response`, updatedResponse);
-      res.redirect(`/results?subjectid=${encodeURIComponent(subjectid)}`);
+    await client.set(`subject:${subjectid}:response`, updatedResponse);
+    res.redirect(`/results?subjectid=${encodeURIComponent(subjectid)}`);
   } catch (error) {
-      console.error('Error generating more results:', error);
-      res.send('Error generating more results.');
+    console.error('Error generating more results:', error);
+    res.send('Error generating more results.');
   }
 });
 
@@ -448,12 +564,11 @@ app.post('/generate-summary', ensureAuthenticated, async (req, res) => {
     }
 
     const subjectText = await getSubjectText(subjectid);
-    const model = await getModel(subjectid); // Retrieve the model dynamically
+    const model = await getModel(subjectid);
 
     const promptSummary = fs.readFileSync(promptSummaryPath, 'utf-8');
     const prompt = `${promptSummary} ${subjectText} ${existingResponse}`;
-    
-    // Fetch the user's API key from Redis
+
     const userApiKey = await client.hGet(`user:${req.user.email}`, 'apiKey');
 
     if (!userApiKey) {
@@ -472,7 +587,7 @@ app.post('/generate-summary', ensureAuthenticated, async (req, res) => {
         headers: {
           Authorization: `Bearer ${userApiKey}`,
         },
-        timeout: 60000, // 60 seconds timeout
+        timeout: 60000,
       }
     );
 
@@ -619,6 +734,80 @@ app.post('/save-template', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// API endpoints for Prompts
+
+// Get all prompts
+app.get('/prompts', ensureAuthenticated, async (req, res) => {
+  try {
+    const keys = await client.keys('prompts:*:title');
+    const prompts = await Promise.all(
+      keys.map(async (key) => {
+        const id = key.split(':')[1];
+        const title = await client.get(key);
+        return { id, title };
+      })
+    );
+    res.json({ prompts });
+  } catch (err) {
+    console.error('Error fetching prompts:', err);
+    res.status(500).send('Error fetching prompts');
+  }
+});
+
+// Get a specific prompt
+app.get('/prompts/:id', ensureAuthenticated, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const title = await client.get(`prompts:${id}:title`);
+    const prompttext = await client.get(`prompts:${id}:prompttext`);
+    res.json({ title, prompttext });
+  } catch (err) {
+    console.error('Error fetching prompt:', err);
+    res.status(500).send('Error fetching prompt');
+  }
+});
+
+// Update a specific prompt
+app.put('/prompts/:id', ensureAuthenticated, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, prompttext } = req.body;
+    await client.set(`prompts:${id}:title`, title);
+    await client.set(`prompts:${id}:prompttext`, prompttext);
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('Error updating prompt:', err);
+    res.status(500).send('Error updating prompt');
+  }
+});
+
+// Delete a specific prompt
+app.delete('/prompts/:id', ensureAuthenticated, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await client.del(`prompts:${id}:title`);
+    await client.del(`prompts:${id}:prompttext`);
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('Error deleting prompt:', err);
+    res.status(500).send('Error deleting prompt');
+  }
+});
+
+// Add a new prompt
+app.post('/prompts', ensureAuthenticated, async (req, res) => {
+  try {
+    const { title, prompttext } = req.body;
+    const newId = await client.incr('prompts_id_counter');
+    await client.set(`prompts:${newId}:title`, title);
+    await client.set(`prompts:${newId}:prompttext`, prompttext);
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('Error adding new prompt:', err);
+    res.status(500).send('Error adding new prompt');
+  }
+});
+
 // API endpoints for RWEs
 async function getAllRwes() {
   const keys = await client.keys('rwe:*');
@@ -647,22 +836,13 @@ async function getRweById(rweid) {
 app.post('/add-rwe', ensureAuthenticated, async (req, res) => {
   const { threat, description, reference } = req.body;
 
-  if (!threat || !description || !reference) {
-    console.error('Missing required fields:', { threat, description, reference });
-    return res.status(400).json({ success: false, error: 'All fields are required.' });
-  }
-
   try {
     const rweid = await client.incr('rwe_id_counter');
-    await client.hSet(`rwe:${rweid}`, {
-      threat,
-      description,
-      reference,
-    });
+    await createRweHash(rweid, threat, description, reference);
     res.json({ success: true });
   } catch (err) {
     console.error('Error adding RWE:', err);
-    res.status(500).json({ success: false, error: 'Error adding RWE.' });
+    res.json({ success: false, error: 'Error adding RWE' });
   }
 });
 
@@ -767,22 +947,21 @@ app.post('/update-user', ensureAuthenticated, async (req, res) => {
   const { name, registered, apiKey } = req.body;
 
   if (!email) {
-      return res.status(400).json({ success: false, error: 'Email is required.' });
+    return res.status(400).json({ success: false, error: 'Email is required.' });
   }
 
   if (!name || (registered !== 'true' && registered !== 'false')) {
-      return res.status(400).json({ success: false, error: 'Invalid data provided.' });
+    return res.status(400).json({ success: false, error: 'Invalid data provided.' });
   }
 
   try {
-      await client.hSet(`user:${email}`, { name, registered, apiKey }); // Save the API key in Redis
-      res.json({ success: true, message: 'User updated successfully.' });
+    await client.hSet(`user:${email}`, { name, registered, apiKey });
+    res.json({ success: true, message: 'User updated successfully.' });
   } catch (err) {
-      console.error('Error updating user:', err);
-      res.status(500).json({ success: false, error: 'Error updating user.' });
+    console.error('Error updating user:', err);
+    res.status(500).json({ success: false, error: 'Error updating user.' });
   }
 });
-
 
 // Route to delete a specific user
 app.delete('/delete-user', ensureAuthenticated, async (req, res) => {
@@ -810,42 +989,14 @@ app.delete('/delete-rwe/:rweid', ensureAuthenticated, async (req, res) => {
   const hashKey = `rwe:${rweid}`;
 
   try {
-      const result = await client.del(hashKey);
-      if (result === 0) {
-          return res.status(404).json({ success: false, error: 'RWE not found.' });
-      }
-      res.json({ success: true, message: 'RWE deleted successfully.' });
+    const result = await client.del(hashKey);
+    if (result === 0) {
+      return res.status(404).json({ success: false, error: 'RWE not found.' });
+    }
+    res.json({ success: true, message: 'RWE deleted successfully.' });
   } catch (err) {
-      console.error('Error deleting RWE:', err);
-      res.status(500).json({ success: false, error: 'Error deleting RWE.' });
-  }
-});
-
-app.get('/search-rwes', ensureAuthenticated, async (req, res) => {
-  const query = req.query.query ? req.query.query.toLowerCase() : '';
-  const page = parseInt(req.query.page) || 1;
-  const pageSize = 9; // Adjust as necessary
-
-  try {
-    const allRwes = await getAllRwes(); // Fetch all RWEs
-
-    // Filter the RWEs based on the search query
-    const filteredRwes = allRwes.filter((rwe) =>
-      rwe.threat.toLowerCase().includes(query)
-    );
-
-    // Paginate the filtered results
-    const totalRwes = filteredRwes.length;
-    const totalPages = Math.ceil(totalRwes / pageSize);
-    const paginatedRwes = filteredRwes.slice(
-      (page - 1) * pageSize,
-      page * pageSize
-    );
-
-    res.json({ success: true, rwes: paginatedRwes, totalPages, currentPage: page });
-  } catch (err) {
-    console.error('Error searching RWEs:', err);
-    res.json({ success: false, error: 'Error searching RWEs' });
+    console.error('Error deleting RWE:', err);
+    res.status(500).json({ success: false, error: 'Error deleting RWE.' });
   }
 });
 
