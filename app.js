@@ -362,6 +362,7 @@ app.post('/ask', ensureAuthenticated, async (req, res) => {
       const titleKey = `subject:${subjectid}:title`;
       const modelKey = `subject:${subjectid}:model`;
       const subjectKey = `subject:${subjectid}:text`;
+      const promptIdKey = `subject:${subjectid}:promptid`; // Add this line
 
       let cachedResponse = await client.get(cacheKey);
       if (cachedResponse) {
@@ -385,6 +386,7 @@ app.post('/ask', ensureAuthenticated, async (req, res) => {
           await client.set(titleKey, subjectText);
           await client.set(modelKey, model);
           await client.set(subjectKey, subjectText);
+          await client.set(promptIdKey, selectedPromptId); // Save the prompt ID in Redis
           res.redirect(`/results?subjectid=${encodeURIComponent(subjectid)}`);
       }
   } catch (error) {
@@ -398,7 +400,6 @@ app.post('/ask', ensureAuthenticated, async (req, res) => {
       res.status(500).send('Error communicating with GPT-4 API.');
   }
 });
-
 
 app.get('/search-titles', ensureAuthenticated, async (req, res) => {
   const query = req.query.query.toLowerCase();
