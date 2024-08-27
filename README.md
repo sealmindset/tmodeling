@@ -4,7 +4,7 @@
 **Author**: sealmindset
 
 ## Description
-This is a threat modeling tool that interfaces with Redis for data management and the OpenAI API for generating detailed threat analyses. It allows users to input specific subjects (such as a software or technology) and receive a list of potential security threats associated with that subject. 
+This is a threat modeling tool that interfaces with Redis for data management and the OpenAI API for generating detailed threat analyses. It allows users to input specific subjects (such as software or technology) and receive a list of potential security threats associated with that subject. 
 
 ## Key Features
 - Interactive Threat Generation: Users can request the analysis of new subjects or additional threats for existing subjects directly through a web interface.
@@ -15,7 +15,7 @@ This is a threat modeling tool that interfaces with Redis for data management an
 
 - OpenAI API Key
 - Redis Server
-- Node.JS with Express installed on your machine
+- Node.JS with Express installed on your local machine
 
 ### Configuration Files
 
@@ -23,18 +23,8 @@ This is a threat modeling tool that interfaces with Redis for data management an
 Located in the root directory of this project, this file should contain:
 
 ```plaintext
-API_KEY='your openai-api-key'
 REDIS_HOST=localhost
 REDIS_PORT=6379
-```
-
-#### `prompt-template.txt` File
-The prompt-template.txt file stores the template for querying the OpenAI API to create threat models.
-
-The placeholder is "SUBJECT" and must be capitalized to allow for the dynamic substitution, allowing the prompt to be reused for any threat subject entered at the UI. This helps provide consistent and tailored threat modeling responses. For example:
-
-```plaintext
-What threats is SUBJECT susceptible to?
 ```
 
 ## Running
