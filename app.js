@@ -16,6 +16,9 @@ const port = process.env.PORT || 3000;
 const redisHost = process.env.REDIS_HOST || 'localhost';
 const redisPort = process.env.REDIS_PORT || 6379;
 
+const summaryTemplateKey = 'prompt:summary:template'; // Key for the summary template
+const summaryVersionKey = 'prompt:summary:version'; // Key for versioned summaries if needed
+
 const cors = require('cors');
 app.use(cors({
   origin: 'https://tmodeling.onrender.com',
@@ -35,6 +38,16 @@ const client = redis.createClient({
   },
   password: process.env.REDIS_PASSWORD,
 });
+
+const createRweHash = async (rweid, threat, description, reference) => {
+  const hashKey = `rwe:${rweid}`;
+  await client.hSet(hashKey, {
+    threat,
+    description,
+    reference
+  });
+};
+
 
 client.on('error', (err) => {
   console.error('Redis error: ', err);
@@ -559,23 +572,28 @@ app.post('/generate-summary', ensureAuthenticated, async (req, res) => {
 
   try {
     console.log('Generating summary for subjectid:', subjectid);
+
+    // Fetch the existing response from Redis
     const existingResponse = await getFullResponse(subjectid);
     if (!existingResponse) {
       throw new Error('No existing response found for subject');
     }
 
+    // Fetch the summary template from Redis
+    const promptSummary = await client.get('prompt:summary:template');
+    if (!promptSummary) {
+      throw new Error('No summary template found in Redis');
+    }
+
     const subjectText = await getSubjectText(subjectid);
     const model = await getModel(subjectid);
-
-    const promptSummary = fs.readFileSync(promptSummaryPath, 'utf-8');
-    const prompt = `${promptSummary} ${subjectText} ${existingResponse}`;
-
     const userApiKey = await client.hGet(`user:${req.user.email}`, 'apiKey');
 
     if (!userApiKey) {
       throw new Error('API Key not found for user');
     }
 
+    const prompt = `${promptSummary} ${subjectText} ${existingResponse}`;
     console.log('Prompt for summary:', prompt);
 
     const response = await axios.post(
@@ -595,39 +613,16 @@ app.post('/generate-summary', ensureAuthenticated, async (req, res) => {
     const summary = response.data.choices[0].message.content;
     console.log('Generated summary:', summary);
 
+    // Store the generated summary in Redis
     await client.set(summaryKey, summary);
     res.json({ success: true, summary });
   } catch (error) {
     console.error('Error generating summary:', error.message);
-    console.error('Error stack trace:', error.stack);
-
-    if (error.response) {
-      if (error.response.status === 429) {
-        res
-          .status(429)
-          .json({ success: false, error: 'Too Many Requests. Please try again later.' });
-      } else {
-        res
-          .status(error.response.status)
-          .json({ success: false, error: error.response.statusText });
-      }
-    } else if (error.code === 'ECONNRESET') {
-      res
-        .status(500)
-        .json({ success: false, error: 'Connection was reset. Please try again.' });
-    } else if (error.code === 'ETIMEDOUT') {
-      res
-        .status(500)
-        .json({ success: false, error: 'Request timed out. Please try again.' });
-    } else if (error.message.includes('timeout')) {
-      res
-        .status(500)
-        .json({ success: false, error: 'Request timed out. Please try again.' });
-    } else {
-      res.status(500).json({ success: false, error: 'Internal Server Error' });
-    }
+    res.status(500).json({ success: false, error: error.message });
   }
 });
+
+
 
 app.post('/save-summary', ensureAuthenticated, async (req, res) => {
   const { content } = req.body;
@@ -846,6 +841,7 @@ app.post('/add-rwe', ensureAuthenticated, async (req, res) => {
     res.json({ success: false, error: 'Error adding RWE' });
   }
 });
+
 
 app.get('/list-rwes', ensureAuthenticated, async (req, res) => {
   try {

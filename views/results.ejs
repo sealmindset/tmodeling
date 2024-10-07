@@ -505,20 +505,6 @@
         });
     });
 
-    function handleModalTransition(fromModal, toModal) {
-        const fromModalInstance = bootstrap.Modal.getInstance(document.getElementById(fromModal));
-        if (fromModalInstance) {
-            fromModalInstance.hide();
-        }
-        
-        // Remove all backdrops to clean up before showing the next modal
-        document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
-
-        const toModalElement = document.getElementById(toModal);
-        const toModalInstance = bootstrap.Modal.getOrCreateInstance(toModalElement);
-        toModalInstance.show();
-    }
-
     // Example: Handle transition from List of RWE to Modify RWE
     window.showModifyRwe = function(rweid) {
         handleModalTransition('listRweModal', 'modifyRweModal');
@@ -982,17 +968,6 @@ function editRwe(rweid) {
     });
 }
 
-function closeModifyRweModal() {
-const modifyRweModal = bootstrap.Modal.getInstance(document.getElementById('modifyRweModal'));
-if (modifyRweModal) {
-    modifyRweModal.hide();
-    // Ensure backdrop is removed
-    document.body.classList.remove('modal-open');
-    const backdrops = document.querySelectorAll('.modal-backdrop');
-    backdrops.forEach(backdrop => backdrop.remove());
-}
-}
-
 document.getElementById('modifyRweForm').addEventListener('submit', function(event) {
 event.preventDefault();
 const rweid = $(this).data('rweid'); // Retrieve the rweid stored in the modal
@@ -1054,16 +1029,6 @@ fetch(`/delete-rwe/${rweid}`, {
 });
 }
 
-function closeModifyRweModal() {
-const modifyRweModal = bootstrap.Modal.getInstance(document.getElementById('modifyRweModal'));
-if (modifyRweModal) {
-    modifyRweModal.hide();
-}
-document.body.classList.remove('modal-open');
-const backdrops = document.querySelectorAll('.modal-backdrop');
-backdrops.forEach(backdrop => backdrop.remove());
-}
-
 // General function to close any modal by ID
 function closeModal(modalId) {
 const modalElement = document.getElementById(modalId);
@@ -1076,11 +1041,6 @@ if (modalElement) {
     const backdrops = document.querySelectorAll('.modal-backdrop');
     backdrops.forEach(backdrop => backdrop.remove());
 }
-}
-
-// Example usage:
-function closeModifyRweModal() {
-closeModal('modifyRweModal');
 }
 
 function closeListRweModal() {
@@ -1259,6 +1219,120 @@ function selectReport(reportsid) {
             alert('Error selecting report.');
         });
 }
+
+    // New Function to Handle Modal Transition
+    function handleModalTransition(fromModal, toModal) {
+        const fromModalInstance = bootstrap.Modal.getInstance(document.getElementById(fromModal));
+        if (fromModalInstance) {
+            fromModalInstance.hide();
+        }
+        
+        // Remove all backdrops to clean up before showing the next modal
+        document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+
+        const toModalElement = document.getElementById(toModal);
+        const toModalInstance = bootstrap.Modal.getOrCreateInstance(toModalElement);
+        toModalInstance.show();
+    }
+
+    // Example: Handle transition from List of RWE to Modify RWE
+    window.showModifyRwe = function(rweid) {
+        handleModalTransition('listRweModal', 'modifyRweModal');
+        // Load the RWE data and populate the modify modal as needed
+        $.get(`/get-rwe/${rweid}`, function(data) {
+            if (data.success) {
+                $('#modifyRweForm').data('rweid', rweid);
+                $('#modifyRweThreat').val(data.rwe.threat);
+                $('#modifyRweDescription').val(data.rwe.description);
+                $('#modifyRweReference').val(data.rwe.reference);
+            } else {
+                alert('Error fetching RWE data.');
+            }
+        });
+    }
+
+    // Global Modal Event Listeners for Backdrop Handling
+    $('.modal').on('show.bs.modal', function () {
+        if (!document.querySelector('.modal-backdrop')) {
+            $('<div class="modal-backdrop fade show"></div>').appendTo(document.body);
+        }
+        $(document.body).addClass('modal-open');
+    });
+
+    $('.modal').on('hidden.bs.modal', function () {
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        if (backdrops.length > 0) {
+            backdrops[backdrops.length - 1].remove();
+        }
+        if ($('.modal.show').length === 0) {
+            $(document.body).removeClass('modal-open');
+        }
+    });
+
+    // Updated closeModifyRweModal Function
+    function closeModifyRweModal() {
+        const modifyRweModal = bootstrap.Modal.getInstance(document.getElementById('modifyRweModal'));
+        if (modifyRweModal) {
+            modifyRweModal.hide();
+        }
+        document.body.classList.remove('modal-open');
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        backdrops.forEach(backdrop => backdrop.remove());
+    }
+
+    // Utility Function to Close Any Modal by ID
+    function closeModal(modalId) {
+        const modalElement = document.getElementById(modalId);
+        if (modalElement) {
+            const modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
+            modalInstance.hide();
+
+            // Ensure the modal and background are completely reset
+            document.body.classList.remove('modal-open');
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => backdrop.remove());
+        }
+    }
+
+    // Updated closeListRweModal Function to Use closeModal Utility
+    function closeListRweModal() {
+        closeModal('listRweModal');
+    }
+
+    // Update other modal handling parts to use the new utility function if needed...
+
+    // Updated form submission for RWE to ensure the modal is properly closed and cleaned up
+    $('#addRweForm').on('submit', function (event) {
+        event.preventDefault();
+        const threat = $('#addRweThreat').val().trim();
+        const description = $('#addRweDescription').val().trim();
+        const reference = $('#addRweReference').val().trim();
+
+        if (!threat || !description || !reference) {
+            alert('All fields are required.');
+            return;
+        }
+
+        $.post('/add-rwe', { threat, description, reference }, function (data) {
+            if (data.success) {
+                alert('RWE added successfully!');
+                $('#addRweModal').modal('hide'); // Close the modal
+                // Cleanup backdrop and locked body
+                document.body.classList.remove('modal-open');
+                document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+            } else {
+                alert('Error adding RWE.');
+            }
+        }).fail(function (error) {
+            console.error('Error adding RWE:', error);
+            alert('Error adding RWE.');
+        });
+    });
+
+    // Example of using the utility function to close a modal
+    function closeModifyRweModal() {
+        closeModal('modifyRweModal');
+    }
 
 </script>
 </body>
