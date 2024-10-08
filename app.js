@@ -214,6 +214,7 @@ const getAllReports = async () => {
   return reports;
 };
 
+
 const getReportById = async (id) => {
   const titleKey = `reports:${id}:reporttitle`;
   const reportTextKey = `reports:${id}:reporttext`;

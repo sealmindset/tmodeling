@@ -607,28 +607,32 @@
       });
     }
 
-    function fetchReports() {
-      fetch('/reports')
-        .then(response => response.json())
-        .then(data => {
-          const reportList = document.getElementById('report-list');
-          reportList.innerHTML = '';
-          data.reports.forEach(report => {
-            const card = document.createElement('div');
-            card.className = 'col-md-4 mb-4';
-            card.innerHTML = `
-              <div class="card">
-                <div class="card-body">
-                  <h5 class="card-title">${report.title}</h5>
-                  <button class="btn btn-primary" onclick="viewReport(${report.id})">View</button>
-                  <button class="btn btn-secondary" onclick="selectReport(${report.id}, '${report.title}')">Select</button>
-                </div>
+  // Fetch the reports when the modal is displayed
+  function fetchReports() {
+    fetch('/reports')
+      .then(response => response.json())
+      .then(data => {
+        const reportList = document.getElementById('report-list');
+        reportList.innerHTML = '';
+        data.reports.forEach(report => {
+          const card = document.createElement('div');
+          card.className = 'col-md-4 mb-4';
+          card.innerHTML = `
+            <div class="card">
+              <div class="card-body">
+                <h5 class="card-title">${report.title}</h5>
+                <button class="btn btn-primary" onclick="viewReport(${report.id})">View</button>
+                <button class="btn btn-secondary" onclick="selectReport(${report.id}, '${report.title}')">Select</button>
               </div>
-            `;
-            reportList.appendChild(card);
-          });
+            </div>
+          `;
+          reportList.appendChild(card);
         });
-    }
+      });
+  }
+
+  // Ensure fetchReports() is called when the Report List modal is shown
+  document.getElementById('reportModal').addEventListener('show.bs.modal', fetchReports);
 
     function viewReport(id) {
       fetch(`/reports/${id}`)
