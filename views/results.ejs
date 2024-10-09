@@ -96,20 +96,24 @@
         <a class="nav-link" href="/"><i class="fa fa-home"></i> Home</a>
         <form action="/generate-more" method="post" class="nav-link" onsubmit="showLoadingModal()">
           <input type="hidden" name="subjectid" value="<%= subjectid %>">
-          <button type="submit" class="btn btn-link p-0"><i class="fa fa-refresh"></i> Generate TM</button>
+          <button type="submit" class="btn btn-link p-0"><i class="fa fa-refresh"></i>Generate TM</button>
         </form>
         <span class="nav-label">Summary</span>
-        <button id="newSummaryButton" class="nav-link btn btn-link p-0" onclick="generateSummary('<%= subjectid %>')"><i class="fa fa-file"></i> New Summary</button>
+        <!-- Add Summary Button -->
+        <span class="nav-label">Summaries</span>
+        <button class="nav-link btn btn-link p-0" data-bs-toggle="modal" data-bs-target="#summariesModal"><i class="fa fa-file-text"></i>Manage Summaries</button>
+
+        <button id="newSummaryButton" class="nav-link btn btn-link p-0" onclick="generateSummary('<%= subjectid %>')"><i class="fa fa-file"></i>New Summary</button>
         <% if (summary) { %>
-          <button class="nav-link btn btn-link p-0" onclick="viewSummary('<%= subjectid %>')"><i class="fa fa-eye"></i> View Summary</button>
+          <button class="nav-link btn btn-link p-0" onclick="viewSummary('<%= subjectid %>', 'navbar')"><i class="fa fa-eye"></i> View Summary</button>
         <% } %>
         <!-- Add Report Button -->
         <span class="nav-label">Report</span>
-        <button class="nav-link btn btn-link p-0" data-bs-toddggle="modal" onclick="fetchReports()"><i class="fa fa-file-text"></i>Report Format</button>
+        <button class="nav-link btn btn-link p-0" data-bs-toggle="modal" onclick="fetchReports()"><i class="fa fa-file-text"></i>Report Format</button>
         <span class="nav-label">Common Wording</span>
-        <button class="nav-link btn btn-link p-0" onclick="showRweModal('Add')"><i class="fa fa-plus"></i> New RWE</button>
-        <button class="nav-link btn btn-link p-0" onclick="listRwes()"><i class="fa fa-edit"></i> Update RWE</button>
-        <button class="nav-link btn btn-link p-0" onclick="applyRwe()"><i class="fa fa-check"></i> Apply RWE</button>
+        <button class="nav-link btn btn-link p-0" onclick="showRweModal('Add')"><i class="fa fa-plus"></i>New RWE</button>
+        <button class="nav-link btn btn-link p-0" onclick="listRwes()"><i class="fa fa-edit"></i>Update RWE</button>
+        <button class="nav-link btn btn-link p-0" onclick="applyRwe()"><i class="fa fa-check"></i>Apply RWE</button>
       </nav>
     </div>
 
@@ -141,6 +145,88 @@
         <button type="submit" class="btn btn-primary">Save</button>
         <button type="button" class="btn btn-secondary" onclick="showThreatsModal()">View Threats</button>
       </form>
+      
+      <!-- Summaries List Modal -->
+<div class="modal fade" id="summariesModal" tabindex="-1" aria-labelledby="summariesModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="summariesModalLabel">Summaries List</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row" id="summaries-list">
+          <!-- Dynamically loaded summaries will be placed here -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newSummaryModal">Add Summary</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modify Summary Modal -->
+<div class="modal fade" id="modifySummaryModal" tabindex="-1" aria-labelledby="modifySummaryModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modifySummaryModalLabel">Modify Summary</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="modify-summary-form">
+          <div class="mb-3">
+            <label for="summary-title" class="form-label">Title</label>
+            <textarea class="form-control" id="summary-title" rows="1" placeholder="Title"></textarea>
+          </div>
+          <div class="mb-3">
+            <label for="summary-text" class="form-label">Summary</label>
+            <textarea class="form-control" id="summary-text" rows="6" placeholder="Summary content"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger" onclick="deleteSummary()">Delete</button>
+        <button type="button" class="btn btn-primary" onclick="updateSummary()">Update</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- New Summary Modal -->
+<div class="modal fade" id="newSummaryModal" tabindex="-1" aria-labelledby="newSummaryModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="newSummaryModalLabel">New Summary</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="new-summary-form">
+          <div class="mb-3">
+            <label for="new-summary-title" class="form-label">Title</label>
+            <textarea class="form-control" id="new-summary-title" rows="1" placeholder="Title"></textarea>
+          </div>
+          <div class="mb-3">
+            <label for="new-summary-text" class="form-label">Summary</label>
+            <textarea class="form-control" id="new-summary-text" rows="6" placeholder="Summary content"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" onclick="saveNewSummary()">Save Summary</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
 
       <div id="summaryDialog">
         <h2>Report</h2>
@@ -388,6 +474,14 @@
   <script>
     let threatToDelete = null;
 
+    $(document).ready(function() {
+      // Event listener for showing the summaries modal
+      $('#summariesModal').on('show.bs.modal', function () {
+        fetchSummaries();  // Call the function that fetches summaries and populates the list
+      });
+    });
+
+
     document.addEventListener('DOMContentLoaded', function () {
     const textareas = document.querySelectorAll('textarea');
     textareas.forEach(textarea => {
@@ -550,6 +644,178 @@ function adjustTextareaHeight(textarea) {
   }
 }
 
+function fetchSummaries() {
+  fetch('/summaries')
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`Failed to load summaries. Status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (data.summaries) {
+        const summariesList = document.getElementById('summaries-list');
+        summariesList.innerHTML = '';
+        data.summaries.forEach(summary => {
+          const card = document.createElement('div');
+          card.className = 'col-md-4 mb-4';
+          card.innerHTML = `
+            <div class="card">
+              <div class="card-body">
+                <h5 class="card-title">${summary.title}</h5>
+                <button class="btn btn-primary" onclick="viewSummary(${summary.id}, 'list')">View</button>
+                <button class="btn btn-secondary" onclick="selectSummary(${summary.id}, '${summary.title}')">Select</button>
+              </div>
+            </div>
+          `;
+          summariesList.appendChild(card);
+        });
+      } else {
+        throw new Error("No summaries found in response.");
+      }
+    })
+    .catch(error => {
+      console.error('Error fetching summaries:', error);
+      alert('Failed to load summaries. Please try again later.');
+    });
+}
+
+
+function viewSummary(id, context) {
+  // Determine the correct URL based on the context ('navbar' or 'list')
+  const url = context === 'navbar'
+    ? `/get-summary?subjectid=${encodeURIComponent(id)}`
+    : `/summaries/${id}`;
+
+  fetch(url)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`Failed to fetch summary, status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (context === 'navbar') {
+        // Handle viewing from navbar button
+        if (data.success) {
+          showSummaryDialog(data.summary);
+        } else {
+          alert(`Error retrieving summary data for ID: ${id}`);
+        }
+      } else if (context === 'list') {
+        // Handle viewing from summaries list
+        if (data.title && data.summaryText) {
+          document.getElementById('summary-title').value = data.title;
+          document.getElementById('summary-text').value = data.summaryText;
+
+          // Show the modal
+          const modifySummaryModal = new bootstrap.Modal(document.getElementById('modifySummaryModal'));
+          modifySummaryModal.show();
+        } else {
+          console.error('Invalid response structure:', data);
+          alert(`Error retrieving summary data for ID: ${id}`);
+        }
+      }
+    })
+    .catch(error => {
+      console.error('Fetch error:', error);
+      alert('An error occurred while retrieving the summary.');
+    });
+}
+
+function selectSummary(id, title) {
+  // Set the value of an appropriate field with the selected summary title.
+  document.getElementById('title').value = title;
+
+  // Set a hidden input with the selected summary ID if needed.
+  const selectedPromptIdInput = document.getElementById('selectedPromptId');
+  if (selectedPromptIdInput) {
+    selectedPromptIdInput.value = id;
+  }
+
+  // Hide the summaries modal.
+  const summariesModal = bootstrap.Modal.getInstance(document.getElementById('summariesModal'));
+  if (summariesModal) {
+    summariesModal.hide();
+  }
+
+  // Log or show a success message to confirm the selection has been made.
+  console.log(`Selected Summary ID: ${id}, Title: ${title}`);
+}
+
+
+function updateSummary() {
+  const id = document.getElementById('modifySummaryModal').getAttribute('data-summary-id');
+  const title = document.getElementById('summary-title').value;
+  const summaryText = document.getElementById('summary-text').value;
+
+  fetch(`/summaries/${id}`)
+  .then(response => {
+    if (!response.ok) {
+      throw new Error('Failed to fetch summary, status: ' + response.status);
+    }
+    return response.json();
+  })
+  .then(data => {
+    document.getElementById('summary-title').value = data.title;
+    document.getElementById('summary-text').value = data.summaryText;
+    document.getElementById('modifySummaryModal').setAttribute('data-summary-id', id);
+    const modifySummaryModal = new bootstrap.Modal(document.getElementById('modifySummaryModal'));
+    modifySummaryModal.show();
+  })
+  .catch(error => {
+    console.error('Error retrieving summary:', error);
+    alert(`Error retrieving summary data for 2 & 3 ID: ${id}`);
+  });
+
+}
+
+function deleteSummary() {
+  const id = document.getElementById('modifySummaryModal').getAttribute('data-summary-id');
+  if (confirm('Are you sure you want to delete this summary?')) {
+    fetch(`/summaries/${id}`, {
+      method: 'DELETE'
+    })
+    .then(response => {
+      if (response.ok) {
+        alert('Summary deleted successfully');
+        fetchSummaries();
+      } else {
+        alert('Failed to delete summary');
+      }
+    });
+  }
+}
+
+function saveNewSummary() {
+  const title = document.getElementById('new-summary-title').value;
+  const summaryText = document.getElementById('new-summary-text').value;
+
+  fetch('/summaries', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ title, summaryText })
+  })
+  .then(response => {
+    if (response.ok) {
+      alert('Summary added successfully');
+      fetchSummaries();
+
+      // Close the modal after saving the new summary
+      const newSummaryModal = bootstrap.Modal.getInstance(document.getElementById('newSummaryModal'));
+      newSummaryModal.hide();
+    } else {
+      alert('Failed to add summary');
+    }
+  })
+  .catch(error => {
+    console.error('Error adding new summary:', error);
+    alert('An error occurred while adding the summary.');
+  });
+}
+
 function showSummaryDialog(content = '') {
   const dialog = document.getElementById('summaryDialog');
   const textarea = document.getElementById('summaryContent');
@@ -604,18 +870,6 @@ function generateSummary(subjectid) {
         showSummaryDialog(data.summary);
       } else {
         alert('Error generating summary');
-      }
-    });
-}
-
-function viewSummary(subjectid) {
-  fetch(`/get-summary?subjectid=${encodeURIComponent(subjectid)}`)
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        showSummaryDialog(data.summary);
-      } else {
-        alert('Error retrieving summary');
       }
     });
 }
@@ -1031,34 +1285,34 @@ fetch(`/delete-rwe/${rweid}`, {
 
 // General function to close any modal by ID
 function closeModal(modalId) {
-const modalElement = document.getElementById(modalId);
-if (modalElement) {
-    const modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
-    modalInstance.hide();
+  const modalElement = document.getElementById(modalId);
+  if (modalElement) {
+      const modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
+      modalInstance.hide();
 
-    // Ensure the modal and background are completely reset
-    document.body.classList.remove('modal-open');
-    const backdrops = document.querySelectorAll('.modal-backdrop');
-    backdrops.forEach(backdrop => backdrop.remove());
-}
+      // Ensure the modal and background are completely reset
+      document.body.classList.remove('modal-open');
+      const backdrops = document.querySelectorAll('.modal-backdrop');
+      backdrops.forEach(backdrop => backdrop.remove());
+  }
 }
 
 function closeListRweModal() {
-const listRweModal = bootstrap.Modal.getInstance(document.getElementById('listRweModal'));
-if (listRweModal) {
-    listRweModal.hide();
-}
-document.body.classList.remove('modal-open');
-const backdrops = document.querySelectorAll('.modal-backdrop');
-backdrops.forEach(backdrop => backdrop.remove());
+  const listRweModal = bootstrap.Modal.getInstance(document.getElementById('listRweModal'));
+  if (listRweModal) {
+      listRweModal.hide();
+  }
+  document.body.classList.remove('modal-open');
+  const backdrops = document.querySelectorAll('.modal-backdrop');
+  backdrops.forEach(backdrop => backdrop.remove());
 }
 
 function debounce(func, delay) {
-let timeout;
-return function(...args) {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func.apply(this, args), delay);
-};
+  let timeout;
+  return function(...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), delay);
+  };
 }
 
 function applyRwe() {
@@ -1091,64 +1345,62 @@ function applyRwe() {
 }
 
 function fetchReports() {
-    fetch('/list-reports')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const reportList = document.getElementById('report-list');
-                reportList.innerHTML = ''; // Clear existing content
+  fetch('/list-reports')
+  .then(response => response.json())
+  .then(data => {
+      if (data.success) {
+          const reportList = document.getElementById('report-list');
+          reportList.innerHTML = ''; // Clear existing content
 
-                data.reports.forEach(report => {
-                    const reportCard = document.createElement('div');
-                    reportCard.className = 'col-md-4';
-                    reportCard.innerHTML = `
-                        <div class="card mb-4">
-                            <div class="card-body">
-                                <h5 class="card-title">${report.reporttitle}</h5>
-                                <button type="button" class="btn btn-primary" onclick="viewReport('${report.reportsid}')">View</button>
-                                <button type="button" class="btn btn-secondary" onclick="selectReport('${report.reportsid}')">Select</button>
-                            </div>
-                        </div>
-                    `;
-                    reportList.appendChild(reportCard);
-                });
+          data.reports.forEach(report => {
+              const reportCard = document.createElement('div');
+              reportCard.className = 'col-md-4';
+              reportCard.innerHTML = `
+                  <div class="card mb-4">
+                      <div class="card-body">
+                          <h5 class="card-title">${report.reporttitle}</h5>
+                          <button type="button" class="btn btn-primary" onclick="viewReport('${report.reportsid}')">View</button>
+                          <button type="button" class="btn btn-secondary" onclick="selectReport('${report.reportsid}')">Select</button>
+                      </div>
+                  </div>
+              `;
+              reportList.appendChild(reportCard);
+          });
 
-                const reportModal = new bootstrap.Modal(document.getElementById('reportModal'));
-                reportModal.show();
-            } else {
-                alert('Error listing reports.');
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching reports:', error);
-            alert('Error fetching reports.');
-        });
+          const reportModal = new bootstrap.Modal(document.getElementById('reportModal'));
+          reportModal.show();
+      } else {
+          alert('Error listing reports.');
+      }
+  })
+  .catch(error => {
+      console.error('Error fetching reports:', error);
+      alert('Error fetching reports.');
+  });
 }
 
-
-function viewReport(reportsid) {
+  function viewReport(reportsid) {
     fetch(`/get-report/${reportsid}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                document.getElementById('report-title').value = data.report.reporttitle;
-                document.getElementById('report-text').value = data.report.reporttext;
-                document.getElementById('modifyReportModal').setAttribute('data-reportsid', reportsid);
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('report-title').value = data.report.reporttitle;
+            document.getElementById('report-text').value = data.report.reporttext;
+            document.getElementById('modifyReportModal').setAttribute('data-reportsid', reportsid);
 
-                const modifyReportModal = new bootstrap.Modal(document.getElementById('modifyReportModal'));
-                modifyReportModal.show();
-            } else {
-                alert('Error retrieving report.');
-            }
-        })
-        .catch(error => {
-            console.error('Error viewing report:', error);
-            alert('Error viewing report.');
-        });
-}
+            const modifyReportModal = new bootstrap.Modal(document.getElementById('modifyReportModal'));
+            modifyReportModal.show();
+        } else {
+            alert('Error retrieving report.');
+        }
+    })
+    .catch(error => {
+        console.error('Error viewing report:', error);
+        alert('Error viewing report.');
+    });
+  }
 
-
-function updateReport() {
+  function updateReport() {
     const reportsid = document.getElementById('modifyReportModal').getAttribute('data-reportsid');
     const reporttitle = document.getElementById('report-title').value;
     const reporttext = document.getElementById('report-text').value;
@@ -1160,23 +1412,23 @@ function updateReport() {
         },
         body: JSON.stringify({ reporttitle, reporttext })
     })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Report updated successfully!');
-                const modifyReportModal = bootstrap.Modal.getInstance(document.getElementById('modifyReportModal'));
-                modifyReportModal.hide();
-            } else {
-                alert('Error updating report.');
-            }
-        })
-        .catch(error => {
-            console.error('Error updating report:', error);
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Report updated successfully!');
+            const modifyReportModal = bootstrap.Modal.getInstance(document.getElementById('modifyReportModal'));
+            modifyReportModal.hide();
+        } else {
             alert('Error updating report.');
-        });
-}
+        }
+    })
+    .catch(error => {
+        console.error('Error updating report:', error);
+        alert('Error updating report.');
+    });
+  }
 
-function deleteReport() {
+  function deleteReport() {
     const reportsid = document.getElementById('modifyReportModal').getAttribute('data-reportsid');
 
     fetch(`/delete-report/${reportsid}`, {
@@ -1185,89 +1437,73 @@ function deleteReport() {
             'Content-Type': 'application/json'
         }
     })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Report deleted successfully!');
-                const modifyReportModal = bootstrap.Modal.getInstance(document.getElementById('modifyReportModal'));
-                modifyReportModal.hide();
-                fetchReports(); // Refresh report list
-            } else {
-                alert('Error deleting report.');
-            }
-        })
-        .catch(error => {
-            console.error('Error deleting report:', error);
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Report deleted successfully!');
+            const modifyReportModal = bootstrap.Modal.getInstance(document.getElementById('modifyReportModal'));
+            modifyReportModal.hide();
+            fetchReports(); // Refresh report list
+        } else {
             alert('Error deleting report.');
-        });
-}
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting report:', error);
+        alert('Error deleting report.');
+    });
+  }
 
-function selectReport(reportsid) {
+  function selectReport(reportsid) {
     fetch(`/get-report/${reportsid}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                document.getElementById('title').value = `${data.report.reportsid}: ${data.report.reporttitle}`;
-                const reportModal = bootstrap.Modal.getInstance(document.getElementById('reportModal'));
-                reportModal.hide();
-            } else {
-                alert('Error retrieving report.');
-            }
-        })
-        .catch(error => {
-            console.error('Error selecting report:', error);
-            alert('Error selecting report.');
-        });
-}
-
-    // New Function to Handle Modal Transition
-    function handleModalTransition(fromModal, toModal) {
-        const fromModalInstance = bootstrap.Modal.getInstance(document.getElementById(fromModal));
-        if (fromModalInstance) {
-            fromModalInstance.hide();
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('title').value = `${data.report.reportsid}: ${data.report.reporttitle}`;
+            const reportModal = bootstrap.Modal.getInstance(document.getElementById('reportModal'));
+            reportModal.hide();
+        } else {
+            alert('Error retrieving report.');
         }
-        
-        // Remove all backdrops to clean up before showing the next modal
-        document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+    })
+    .catch(error => {
+        console.error('Error selecting report:', error);
+        alert('Error selecting report.');
+    });
+  }
 
-        const toModalElement = document.getElementById(toModal);
-        const toModalInstance = bootstrap.Modal.getOrCreateInstance(toModalElement);
-        toModalInstance.show();
+  // New Function to Handle Modal Transition
+  function handleModalTransition(fromModal, toModal) {
+    const fromModalInstance = bootstrap.Modal.getInstance(document.getElementById(fromModal));
+    if (fromModalInstance) {
+        fromModalInstance.hide();
+    }
+    
+    // Remove all backdrops to clean up before showing the next modal
+    document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+
+    const toModalElement = document.getElementById(toModal);
+    const toModalInstance = bootstrap.Modal.getOrCreateInstance(toModalElement);
+    toModalInstance.show();
+  }
+
+  // Example: Handle transition from List of RWE to Modify RWE
+  window.showModifyRwe = function(rweid) {
+  handleModalTransition('listRweModal', 'modifyRweModal');
+      // Load the RWE data and populate the modify modal as needed
+      $.get(`/get-rwe/${rweid}`, function(data) {
+        if (data.success) {
+            $('#modifyRweForm').data('rweid', rweid);
+            $('#modifyRweThreat').val(data.rwe.threat);
+            $('#modifyRweDescription').val(data.rwe.description);
+            $('#modifyRweReference').val(data.rwe.reference);
+        } else {
+            alert('Error fetching RWE data.');
+        }
+      });
     }
 
-    // Example: Handle transition from List of RWE to Modify RWE
-    window.showModifyRwe = function(rweid) {
-        handleModalTransition('listRweModal', 'modifyRweModal');
-        // Load the RWE data and populate the modify modal as needed
-        $.get(`/get-rwe/${rweid}`, function(data) {
-            if (data.success) {
-                $('#modifyRweForm').data('rweid', rweid);
-                $('#modifyRweThreat').val(data.rwe.threat);
-                $('#modifyRweDescription').val(data.rwe.description);
-                $('#modifyRweReference').val(data.rwe.reference);
-            } else {
-                alert('Error fetching RWE data.');
-            }
-        });
-    }
 
-    // Global Modal Event Listeners for Backdrop Handling
-    $('.modal').on('show.bs.modal', function () {
-        if (!document.querySelector('.modal-backdrop')) {
-            $('<div class="modal-backdrop fade show"></div>').appendTo(document.body);
-        }
-        $(document.body).addClass('modal-open');
-    });
-
-    $('.modal').on('hidden.bs.modal', function () {
-        const backdrops = document.querySelectorAll('.modal-backdrop');
-        if (backdrops.length > 0) {
-            backdrops[backdrops.length - 1].remove();
-        }
-        if ($('.modal.show').length === 0) {
-            $(document.body).removeClass('modal-open');
-        }
-    });
 
     // Updated closeModifyRweModal Function
     function closeModifyRweModal() {

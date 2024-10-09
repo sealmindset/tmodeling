@@ -16,14 +16,13 @@ const port = process.env.PORT || 3000;
 const redisHost = process.env.REDIS_HOST || 'localhost';
 const redisPort = process.env.REDIS_PORT || 6379;
 
-const summaryTemplateKey = 'prompt:summary:template'; // Key for the summary template
-const summaryVersionKey = 'prompt:summary:version'; // Key for versioned summaries if needed
-
 const cors = require('cors');
-app.use(cors({
-  origin: 'https://tmodeling.onrender.com',
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: 'https://tmodeling.onrender.com',
+    credentials: true,
+  })
+);
 
 console.log('Environment Variables:');
 console.log(`REDIS_HOST: ${redisHost}`);
@@ -44,10 +43,9 @@ const createRweHash = async (rweid, threat, description, reference) => {
   await client.hSet(hashKey, {
     threat,
     description,
-    reference
+    reference,
   });
 };
-
 
 client.on('error', (err) => {
   console.error('Redis error: ', err);
@@ -149,7 +147,10 @@ const getAllSubjectsWithTitles = async () => {
     const subjects = keys.map((key) => key.split(':')[1]);
     const titlesPromises = keys.map((key) => client.get(key));
     const titles = await Promise.all(titlesPromises);
-    return subjects.map((subjectid, index) => ({ subjectid, title: titles[index] }));
+    return subjects.map((subjectid, index) => ({
+      subjectid,
+      title: titles[index],
+    }));
   } catch (err) {
     console.error('Error fetching subjects:', err);
     throw err;
@@ -201,20 +202,6 @@ const getSubjectText = async (subjectid) => {
 };
 
 // Reports Logic
-
-const getAllReports = async () => {
-  const keys = await client.keys('reports:*:reporttitle');
-  const reports = await Promise.all(
-    keys.map(async (key) => {
-      const id = key.split(':')[1];
-      const title = await client.get(key);
-      return { id, title };
-    })
-  );
-  return reports;
-};
-
-
 const getReportById = async (id) => {
   const titleKey = `reports:${id}:reporttitle`;
   const reportTextKey = `reports:${id}:reporttext`;
@@ -225,30 +212,20 @@ const getReportById = async (id) => {
 
 app.get('/list-reports', ensureAuthenticated, async (req, res) => {
   try {
-      const keys = await client.keys('reports:*:reporttitle');
-      const reports = [];
+    const keys = await client.keys('reports:*:reporttitle');
+    const reports = [];
 
-      for (const key of keys) {
-          const reportsid = key.split(':')[1];
-          const reporttitle = await client.get(key);
-          const reporttext = await client.get(`reports:${reportsid}:reporttext`);
-          reports.push({ reportsid, reporttitle, reporttext });
-      }
+    for (const key of keys) {
+      const reportsid = key.split(':')[1];
+      const reporttitle = await client.get(key);
+      const reporttext = await client.get(`reports:${reportsid}:reporttext`);
+      reports.push({ reportsid, reporttitle, reporttext });
+    }
 
-      res.json({ success: true, reports });
+    res.json({ success: true, reports });
   } catch (err) {
-      console.error('Error listing reports:', err);
-      res.json({ success: false, error: 'Error listing reports.' });
-  }
-});
-
-app.get('/reports', ensureAuthenticated, async (req, res) => {
-  try {
-    const reports = await getAllReports();
-    res.json({ reports });
-  } catch (err) {
-    console.error('Error fetching reports:', err);
-    res.status(500).send('Error fetching reports.');
+    console.error('Error listing reports:', err);
+    res.json({ success: false, error: 'Error listing reports.' });
   }
 });
 
@@ -301,31 +278,15 @@ app.delete('/reports/:id', ensureAuthenticated, async (req, res) => {
   }
 });
 
-app.get('/get-report/:reportsid', ensureAuthenticated, async (req, res) => {
-  try {
-      const reportsid = req.params.reportsid;
-      const reporttitle = await client.get(`reports:${reportsid}:reporttitle`);
-      const reporttext = await client.get(`reports:${reportsid}:reporttext`);
-
-      if (reporttitle && reporttext) {
-          res.json({ success: true, report: { reporttitle, reporttext } });
-      } else {
-          res.json({ success: false, error: 'Report not found' });
-      }
-  } catch (err) {
-      console.error('Error retrieving report:', err);
-      res.json({ success: false, error: 'Error retrieving report' });
-  }
-});
-
-
 app.get('/', ensureAuthenticated, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = 10;
 
   try {
     let subjectsWithTitles = await getAllSubjectsWithTitles();
-    subjectsWithTitles.sort((a, b) => naturalCompare(a.title, b.title));
+    subjectsWithTitles.sort((a, b) =>
+      naturalCompare(a.title, b.title)
+    );
 
     const totalSubjects = subjectsWithTitles.length;
     const totalPages = Math.ceil(totalSubjects / pageSize);
@@ -356,62 +317,67 @@ app.get('/', ensureAuthenticated, async (req, res) => {
 app.post('/ask', ensureAuthenticated, async (req, res) => {
   const subjectText = req.body.subject;
   const model = req.body.model || 'gpt-4';
-  const apiKey = req.body.apiKey || req.user.apiKey; // Use provided API key or user's saved key
+  const apiKey = req.body.apiKey || req.user.apiKey;
   const selectedPromptId = req.body.selectedPromptId;
 
   try {
-      // Fetch the prompt text from Redis based on the selectedPromptId
-      let prompt;
-      if (selectedPromptId) {
-          prompt = await client.get(`prompts:${selectedPromptId}:prompttext`);
-          if (!prompt) {
-              throw new Error('Selected prompt not found.');
-          }
-      } else {
-          throw new Error('No prompt selected.');
+    // Fetch the prompt text from Redis based on the selectedPromptId
+    let prompt;
+    if (selectedPromptId) {
+      prompt = await client.get(`prompts:${selectedPromptId}:prompttext`);
+      if (!prompt) {
+        throw new Error('Selected prompt not found.');
       }
+    } else {
+      throw new Error('No prompt selected.');
+    }
 
-      const subjectid = await client.incr('subject_id_counter');
-      const cacheKey = `subject:${subjectid}:response`;
-      const titleKey = `subject:${subjectid}:title`;
-      const modelKey = `subject:${subjectid}:model`;
-      const subjectKey = `subject:${subjectid}:text`;
-      const promptIdKey = `subject:${subjectid}:promptid`; // Add this line
+    const subjectid = await client.incr('subject_id_counter');
+    const cacheKey = `subject:${subjectid}:response`;
+    const titleKey = `subject:${subjectid}:title`;
+    const modelKey = `subject:${subjectid}:model`;
+    const subjectKey = `subject:${subjectid}:text`;
+    const promptIdKey = `subject:${subjectid}:promptid`;
 
-      let cachedResponse = await client.get(cacheKey);
-      if (cachedResponse) {
-          res.redirect(`/results?subjectid=${encodeURIComponent(subjectid)}`);
-      } else {
-          const response = await axios.post(
-              'https://api.openai.com/v1/chat/completions',
-              {
-                  model,
-                  messages: [{ role: 'user', content: prompt.replace('SUBJECT', subjectText) }],
-              },
-              {
-                  headers: {
-                      Authorization: `Bearer ${apiKey}`,
-                  },
-              }
-          );
+    let cachedResponse = await client.get(cacheKey);
+    if (cachedResponse) {
+      res.redirect(`/results?subjectid=${encodeURIComponent(subjectid)}`);
+    } else {
+      const response = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: prompt.replace('SUBJECT', subjectText),
+            },
+          ],
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+          },
+        }
+      );
 
-          const apiResponse = response.data.choices[0].message.content;
-          await client.set(cacheKey, apiResponse, { EX: 3600 });
-          await client.set(titleKey, subjectText);
-          await client.set(modelKey, model);
-          await client.set(subjectKey, subjectText);
-          await client.set(promptIdKey, selectedPromptId); // Save the prompt ID in Redis
-          res.redirect(`/results?subjectid=${encodeURIComponent(subjectid)}`);
-      }
+      const apiResponse = response.data.choices[0].message.content;
+      await client.set(cacheKey, apiResponse, { EX: 3600 });
+      await client.set(titleKey, subjectText);
+      await client.set(modelKey, model);
+      await client.set(subjectKey, subjectText);
+      await client.set(promptIdKey, selectedPromptId);
+      res.redirect(`/results?subjectid=${encodeURIComponent(subjectid)}`);
+    }
   } catch (error) {
-      console.error('Error communicating with GPT-4 API:', error.message);
-      if (error.response) {
-          console.error('Response data:', error.response.data);
-          console.error('Response status:', error.response.status);
-      } else {
-          console.error('Request error:', error.message);
-      }
-      res.status(500).send('Error communicating with GPT-4 API.');
+    console.error('Error communicating with GPT-4 API:', error.message);
+    if (error.response) {
+      console.error('Response data:', error.response.data);
+      console.error('Response status:', error.response.status);
+    } else {
+      console.error('Request error:', error.message);
+    }
+    res.status(500).send('Error communicating with GPT-4 API.');
   }
 });
 
@@ -537,7 +503,6 @@ app.post('/generate-more', ensureAuthenticated, async (req, res) => {
     }
 
     const existingResponse = await getFullResponse(subjectid);
-    const subjectText = await getSubjectText(subjectid);
     const model = await getModel(subjectid);
 
     const prompt = `${existingResponse}\nContinue generating more results:`;
@@ -568,7 +533,6 @@ app.post('/generate-more', ensureAuthenticated, async (req, res) => {
 
 app.post('/generate-summary', ensureAuthenticated, async (req, res) => {
   const { subjectid } = req.body;
-  const cacheKey = `subject:${subjectid}:response`;
   const summaryKey = `subject:${subjectid}:summary`;
 
   try {
@@ -588,7 +552,10 @@ app.post('/generate-summary', ensureAuthenticated, async (req, res) => {
 
     const subjectText = await getSubjectText(subjectid);
     const model = await getModel(subjectid);
-    const userApiKey = await client.hGet(`user:${req.user.email}`, 'apiKey');
+    const userApiKey = await client.hGet(
+      `user:${req.user.email}`,
+      'apiKey'
+    );
 
     if (!userApiKey) {
       throw new Error('API Key not found for user');
@@ -623,27 +590,79 @@ app.post('/generate-summary', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// Summaries API endpoints
 
-
-app.post('/save-summary', ensureAuthenticated, async (req, res) => {
-  const { content } = req.body;
-  const versionedSummaryPath = (version) =>
-    path.join(__dirname, `prompt-summary-v${version}.txt`);
-
+// Get all summaries
+app.get('/summaries', ensureAuthenticated, async (req, res) => {
   try {
-    let version = 1;
-    while (fs.existsSync(versionedSummaryPath(version))) {
-      version += 1;
-    }
+    const keys = await client.keys('summaries:*:title');
+    const summaries = await Promise.all(
+      keys.map(async (key) => {
+        const id = key.split(':')[1];
+        const title = await client.get(key);
+        return { id, title };
+      })
+    );
+    res.json({ summaries });
+  } catch (err) {
+    console.error('Error fetching summaries:', err);
+    res.status(500).send('Error fetching summaries');
+  }
+});
 
-    await fs.promises.copyFile(promptSummaryPath, versionedSummaryPath(version));
+// Get a specific summary
+app.get('/summaries/:id', ensureAuthenticated, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const title = await client.get(`summaries:${id}:title`);
+    const summaryText = await client.get(
+      `summaries:${id}:summaryText`
+    );
+    res.json({ title, summaryText });
+  } catch (err) {
+    console.error('Error fetching summary:', err);
+    res.status(500).send('Error fetching summary');
+  }
+});
 
-    await fs.promises.writeFile(promptSummaryPath, content, 'utf-8');
+// Add a new summary
+app.post('/summaries', ensureAuthenticated, async (req, res) => {
+  try {
+    const { title, summaryText } = req.body;
+    const newId = await client.incr('summaries_id_counter');
+    await client.set(`summaries:${newId}:title`, title);
+    await client.set(`summaries:${newId}:summaryText`, summaryText);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error adding new summary:', err);
+    res.status(500).send('Error adding new summary');
+  }
+});
 
-    res.sendStatus(200);
-  } catch (error) {
-    console.error('Error saving summary:', error);
-    res.status(500).send('Error saving summary');
+// Update a specific summary
+app.put('/summaries/:id', ensureAuthenticated, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, summaryText } = req.body;
+    await client.set(`summaries:${id}:title`, title);
+    await client.set(`summaries:${id}:summaryText`, summaryText);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error updating summary:', err);
+    res.status(500).send('Error updating summary');
+  }
+});
+
+// Delete a specific summary
+app.delete('/summaries/:id', ensureAuthenticated, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await client.del(`summaries:${id}:title`);
+    await client.del(`summaries:${id}:summaryText`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting summary:', err);
+    res.status(500).send('Error deleting summary');
   }
 });
 
@@ -656,7 +675,10 @@ app.post('/save-modified-summary', ensureAuthenticated, async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Error saving modified summary:', error);
-    res.json({ success: false, error: 'Error saving modified summary' });
+    res.json({
+      success: false,
+      error: 'Error saving modified summary',
+    });
   }
 });
 
@@ -673,62 +695,29 @@ app.post('/update-merged-content', ensureAuthenticated, async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Error saving merged content:', error);
-    res.json({ success: false, error: 'Error saving merged content' });
+    res.json({
+      success: false,
+      error: 'Error saving merged content',
+    });
   }
-});
-
-app.get('/template', ensureAuthenticated, (req, res) => {
-  fs.readFile(promptTemplatePath, 'utf-8', (err, data) => {
-    if (err) {
-      return res.status(500).send('Error reading template file');
-    }
-    res.send(data);
-  });
-});
-
-app.get('/summary', ensureAuthenticated, (req, res) => {
-  fs.readFile(promptSummaryPath, 'utf-8', (err, data) => {
-    if (err) {
-      return res.status(500).send('Error reading summary file');
-    }
-    res.send(data);
-  });
 });
 
 app.get('/results-format', ensureAuthenticated, (req, res) => {
   fs.readFile('results-format.txt', 'utf-8', (err, data) => {
     if (err) {
-      return res.status(500).send('Error reading results format file');
+      return res
+        .status(500)
+        .send('Error reading results format file');
     }
     try {
       const replacements = JSON.parse(data);
       res.json(replacements);
     } catch (err) {
-      res.status(500).send('Error parsing results format file');
+      res
+        .status(500)
+        .send('Error parsing results format file');
     }
   });
-});
-
-app.post('/save-template', ensureAuthenticated, async (req, res) => {
-  const { content } = req.body;
-  const versionedTemplatePath = (version) =>
-    path.join(__dirname, `prompt-template-v${version}.txt`);
-
-  try {
-    let version = 1;
-    while (fs.existsSync(versionedTemplatePath(version))) {
-      version += 1;
-    }
-
-    await fs.promises.copyFile(promptTemplatePath, versionedTemplatePath(version));
-
-    await fs.promises.writeFile(promptTemplatePath, content, 'utf-8');
-
-    res.sendStatus(200);
-  } catch (error) {
-    console.error('Error saving template:', error);
-    res.status(500).send('Error saving template');
-  }
 });
 
 // API endpoints for Prompts
@@ -756,7 +745,9 @@ app.get('/prompts/:id', ensureAuthenticated, async (req, res) => {
   try {
     const { id } = req.params;
     const title = await client.get(`prompts:${id}:title`);
-    const prompttext = await client.get(`prompts:${id}:prompttext`);
+    const prompttext = await client.get(
+      `prompts:${id}:prompttext`
+    );
     res.json({ title, prompttext });
   } catch (err) {
     console.error('Error fetching prompt:', err);
@@ -843,7 +834,6 @@ app.post('/add-rwe', ensureAuthenticated, async (req, res) => {
   }
 });
 
-
 app.get('/list-rwes', ensureAuthenticated, async (req, res) => {
   try {
     const rwes = await getAllRwes();
@@ -868,7 +858,12 @@ app.get('/list-rwes-paginated', ensureAuthenticated, async (req, res) => {
       page * pageSize
     );
 
-    res.json({ success: true, rwes: paginatedRwes, totalPages, currentPage: page });
+    res.json({
+      success: true,
+      rwes: paginatedRwes,
+      totalPages,
+      currentPage: page,
+    });
   } catch (err) {
     console.error('Error listing RWEs:', err);
     res.json({ success: false, error: 'Error listing RWEs' });
@@ -901,6 +896,27 @@ app.post('/update-rwe/:rweid', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// Route to delete a specific RWE
+app.delete('/delete-rwe/:rweid', ensureAuthenticated, async (req, res) => {
+  const { rweid } = req.params;
+  const hashKey = `rwe:${rweid}`;
+
+  try {
+    const result = await client.del(hashKey);
+    if (result === 0) {
+      return res
+        .status(404)
+        .json({ success: false, error: 'RWE not found.' });
+    }
+    res.json({ success: true, message: 'RWE deleted successfully.' });
+  } catch (err) {
+    console.error('Error deleting RWE:', err);
+    res
+      .status(500)
+      .json({ success: false, error: 'Error deleting RWE.' });
+  }
+});
+
 // Route to list all users
 app.get('/list-users', ensureAuthenticated, async (req, res) => {
   try {
@@ -915,7 +931,9 @@ app.get('/list-users', ensureAuthenticated, async (req, res) => {
     res.json({ success: true, users });
   } catch (err) {
     console.error('Error listing users:', err);
-    res.status(500).json({ success: false, error: 'Error listing users.' });
+    res
+      .status(500)
+      .json({ success: false, error: 'Error listing users.' });
   }
 });
 
@@ -924,18 +942,24 @@ app.get('/get-user', ensureAuthenticated, async (req, res) => {
   const email = req.query.email;
 
   if (!email) {
-    return res.status(400).json({ success: false, error: 'Email is required.' });
+    return res
+      .status(400)
+      .json({ success: false, error: 'Email is required.' });
   }
 
   try {
     const user = await client.hGetAll(`user:${email}`);
     if (Object.keys(user).length === 0) {
-      return res.status(404).json({ success: false, error: 'User not found.' });
+      return res
+        .status(404)
+        .json({ success: false, error: 'User not found.' });
     }
     res.json({ success: true, user });
   } catch (err) {
     console.error('Error fetching user:', err);
-    res.status(500).json({ success: false, error: 'Error fetching user.' });
+    res
+      .status(500)
+      .json({ success: false, error: 'Error fetching user.' });
   }
 });
 
@@ -945,11 +969,15 @@ app.post('/update-user', ensureAuthenticated, async (req, res) => {
   const { name, registered, apiKey } = req.body;
 
   if (!email) {
-    return res.status(400).json({ success: false, error: 'Email is required.' });
+    return res
+      .status(400)
+      .json({ success: false, error: 'Email is required.' });
   }
 
   if (!name || (registered !== 'true' && registered !== 'false')) {
-    return res.status(400).json({ success: false, error: 'Invalid data provided.' });
+    return res
+      .status(400)
+      .json({ success: false, error: 'Invalid data provided.' });
   }
 
   try {
@@ -957,7 +985,9 @@ app.post('/update-user', ensureAuthenticated, async (req, res) => {
     res.json({ success: true, message: 'User updated successfully.' });
   } catch (err) {
     console.error('Error updating user:', err);
-    res.status(500).json({ success: false, error: 'Error updating user.' });
+    res
+      .status(500)
+      .json({ success: false, error: 'Error updating user.' });
   }
 });
 
@@ -966,38 +996,26 @@ app.delete('/delete-user', ensureAuthenticated, async (req, res) => {
   const email = req.query.email;
 
   if (!email) {
-    return res.status(400).json({ success: false, error: 'Email is required.' });
+    return res
+      .status(400)
+      .json({ success: false, error: 'Email is required.' });
   }
 
   try {
     const result = await client.del(`user:${email}`);
     if (result === 0) {
-      return res.status(404).json({ success: false, error: 'User not found.' });
+      return res
+        .status(404)
+        .json({ success: false, error: 'User not found.' });
     }
     res.json({ success: true, message: 'User deleted successfully.' });
   } catch (err) {
     console.error('Error deleting user:', err);
-    res.status(500).json({ success: false, error: 'Error deleting user.' });
+    res
+      .status(500)
+      .json({ success: false, error: 'Error deleting user.' });
   }
 });
-
-// Route to delete a specific RWE
-app.delete('/delete-rwe/:rweid', ensureAuthenticated, async (req, res) => {
-  const { rweid } = req.params;
-  const hashKey = `rwe:${rweid}`;
-
-  try {
-    const result = await client.del(hashKey);
-    if (result === 0) {
-      return res.status(404).json({ success: false, error: 'RWE not found.' });
-    }
-    res.json({ success: true, message: 'RWE deleted successfully.' });
-  } catch (err) {
-    console.error('Error deleting RWE:', err);
-    res.status(500).json({ success: false, error: 'Error deleting RWE.' });
-  }
-});
-
 
 // Login route
 app.get('/login', (req, res) => {

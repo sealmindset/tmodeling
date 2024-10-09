@@ -587,25 +587,34 @@
     }
 
     function saveNewPrompt() {
-      const title = document.getElementById('new-prompt-title').value;
-      const prompttext = document.getElementById('new-prompt-text').value;
+  const title = document.getElementById('new-prompt-title').value;
+  const prompttext = document.getElementById('new-prompt-text').value;
 
-      fetch('/prompts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ title, prompttext })
-      })
-      .then(response => {
-        if (response.ok) {
-          alert('Prompt added successfully');
-          fetchPrompts();
-        } else {
-          alert('Failed to add prompt');
-        }
-      });
+  fetch('/prompts', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ title, prompttext })
+  })
+  .then(response => {
+    if (response.ok) {
+      alert('Prompt added successfully');
+      fetchPrompts();
+
+      // Close the modal after saving the new prompt
+      const newPromptModal = bootstrap.Modal.getInstance(document.getElementById('newPromptModal'));
+      newPromptModal.hide();
+    } else {
+      alert('Failed to add prompt');
     }
+  })
+  .catch(error => {
+    console.error('Error adding new prompt:', error);
+    alert('An error occurred while adding the prompt.');
+  });
+}
+
 
   // Fetch the reports when the modal is displayed
   function fetchReports() {
@@ -677,22 +686,34 @@
       });
     }
 
-    function deleteReport() {
-      const id = document.getElementById('modifyReportModal').getAttribute('data-report-id');
-      if (confirm('Are you sure you want to delete this report?')) {
-        fetch(`/reports/${id}`, {
-          method: 'DELETE'
-        })
-        .then(response => {
-          if (response.ok) {
-            alert('Report deleted successfully');
-            fetchReports();
-          } else {
-            alert('Failed to delete report');
-          }
-        });
+    function deletePrompt() {
+  const id = document.getElementById('modifyPromptModal').getAttribute('data-prompt-id');
+  if (confirm('Are you sure you want to delete this prompt?')) {
+    fetch(`/prompts/${id}`, {
+      method: 'DELETE'
+    })
+    .then(response => {
+      if (response.ok) {
+        alert('Prompt deleted successfully');
+        
+        // Fetch updated prompt list to ensure UI consistency
+        fetchPrompts();
+
+        // Close the modify prompt modal after successful deletion
+        const modifyPromptModal = bootstrap.Modal.getInstance(document.getElementById('modifyPromptModal'));
+        modifyPromptModal.hide();
+      } else {
+        alert('Failed to delete prompt');
       }
-    }
+    })
+    .catch(error => {
+      console.error('Error deleting prompt:', error);
+      alert('An error occurred while deleting the prompt.');
+    });
+  }
+}
+
+
 
     function saveNewReport() {
       const title = document.getElementById('new-report-title').value;
