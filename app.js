@@ -615,15 +615,19 @@ app.get('/summaries/:id', ensureAuthenticated, async (req, res) => {
   try {
     const { id } = req.params;
     const title = await client.get(`summaries:${id}:title`);
-    const summaryText = await client.get(
-      `summaries:${id}:summaryText`
-    );
-    res.json({ title, summaryText });
+    const summaryText = await client.get(`summaries:${id}:summaryText`);
+
+    if (title !== null && summaryText !== null) {
+      res.json({ title, summaryText });
+    } else {
+      res.status(404).json({ success: false, error: 'Summary not found' });
+    }
   } catch (err) {
     console.error('Error fetching summary:', err);
-    res.status(500).send('Error fetching summary');
+    res.status(500).json({ success: false, error: 'Error fetching summary' });
   }
 });
+
 
 // Add a new summary
 app.post('/summaries', ensureAuthenticated, async (req, res) => {

@@ -682,31 +682,24 @@ function fetchSummaries() {
 
 
 function viewSummary(id, context) {
-  // Determine the correct URL based on the context ('navbar' or 'list')
   const url = context === 'navbar'
     ? `/get-summary?subjectid=${encodeURIComponent(id)}`
     : `/summaries/${id}`;
 
   fetch(url)
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`Failed to fetch summary, status: ${response.status}`);
-      }
-      return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
       if (context === 'navbar') {
-        // Handle viewing from navbar button
         if (data.success) {
           showSummaryDialog(data.summary);
         } else {
           alert(`Error retrieving summary data for ID: ${id}`);
         }
       } else if (context === 'list') {
-        // Handle viewing from summaries list
-        if (data.title && data.summaryText) {
+        if (data.title !== undefined && data.summaryText !== undefined) {
           document.getElementById('summary-title').value = data.title;
           document.getElementById('summary-text').value = data.summaryText;
+          document.getElementById('modifySummaryModal').setAttribute('data-summary-id', id);
 
           // Show the modal
           const modifySummaryModal = new bootstrap.Modal(document.getElementById('modifySummaryModal'));
@@ -722,6 +715,8 @@ function viewSummary(id, context) {
       alert('An error occurred while retrieving the summary.');
     });
 }
+
+
 
 function selectSummary(id, title) {
   // Set the value of an appropriate field with the selected summary title.
@@ -746,50 +741,74 @@ function selectSummary(id, title) {
 
 function updateSummary() {
   const id = document.getElementById('modifySummaryModal').getAttribute('data-summary-id');
-  const title = document.getElementById('summary-title').value;
-  const summaryText = document.getElementById('summary-text').value;
+  const title = document.getElementById('summary-title').value.trim();
+  const summaryText = document.getElementById('summary-text').value.trim();
 
-  fetch(`/summaries/${id}`)
-  .then(response => {
-    if (!response.ok) {
-      throw new Error('Failed to fetch summary, status: ' + response.status);
-    }
-    return response.json();
+  if (!title || !summaryText) {
+    alert('Both title and summary text are required.');
+    return;
+  }
+
+  fetch(`/summaries/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ title, summaryText }),
   })
+  .then(response => response.json())
   .then(data => {
-    document.getElementById('summary-title').value = data.title;
-    document.getElementById('summary-text').value = data.summaryText;
-    document.getElementById('modifySummaryModal').setAttribute('data-summary-id', id);
-    const modifySummaryModal = new bootstrap.Modal(document.getElementById('modifySummaryModal'));
-    modifySummaryModal.show();
+    if (data.success) {
+      alert('Summary updated successfully');
+      const modifySummaryModal = bootstrap.Modal.getInstance(document.getElementById('modifySummaryModal'));
+      modifySummaryModal.hide();
+      fetchSummaries();
+    } else {
+      alert('Failed to update summary');
+    }
   })
   .catch(error => {
-    console.error('Error retrieving summary:', error);
-    alert(`Error retrieving summary data for 2 & 3 ID: ${id}`);
+    console.error('Error updating summary:', error);
+    alert(`Error updating summary for ID: ${id}`);
   });
-
 }
+
+
 
 function deleteSummary() {
   const id = document.getElementById('modifySummaryModal').getAttribute('data-summary-id');
   if (confirm('Are you sure you want to delete this summary?')) {
     fetch(`/summaries/${id}`, {
-      method: 'DELETE'
+      method: 'DELETE',
     })
-    .then(response => {
-      if (response.ok) {
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
         alert('Summary deleted successfully');
+        const modifySummaryModal = bootstrap.Modal.getInstance(document.getElementById('modifySummaryModal'));
+        modifySummaryModal.hide();
         fetchSummaries();
       } else {
         alert('Failed to delete summary');
       }
+    })
+    .catch(error => {
+      console.error('Error deleting summary:', error);
+      alert(`Error deleting summary for ID: ${id}`);
     });
   }
 }
 
+
+
 function saveNewSummary() {
-  const title = document.getElementById('new-summary-title').value;
-  const summaryText = document.getElementById('new-summary-text').value;
+  const title = document.getElementById('new-summary-title').value.trim();
+  const summaryText = document.getElementById('new-summary-text').value.trim();
+
+  if (!title || !summaryText) {
+    alert('Both title and summary text are required.');
+    return;
+  }
 
   fetch('/summaries', {
     method: 'POST',
@@ -798,14 +817,19 @@ function saveNewSummary() {
     },
     body: JSON.stringify({ title, summaryText })
   })
-  .then(response => {
-    if (response.ok) {
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
       alert('Summary added successfully');
       fetchSummaries();
 
       // Close the modal after saving the new summary
       const newSummaryModal = bootstrap.Modal.getInstance(document.getElementById('newSummaryModal'));
       newSummaryModal.hide();
+
+      // Clear input fields
+      document.getElementById('new-summary-title').value = '';
+      document.getElementById('new-summary-text').value = '';
     } else {
       alert('Failed to add summary');
     }
@@ -815,6 +839,8 @@ function saveNewSummary() {
     alert('An error occurred while adding the summary.');
   });
 }
+
+
 
 function showSummaryDialog(content = '') {
   const dialog = document.getElementById('summaryDialog');
