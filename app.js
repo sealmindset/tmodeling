@@ -284,9 +284,7 @@ app.get('/', ensureAuthenticated, async (req, res) => {
 
   try {
     let subjectsWithTitles = await getAllSubjectsWithTitles();
-    subjectsWithTitles.sort((a, b) =>
-      naturalCompare(a.title, b.title)
-    );
+    subjectsWithTitles.sort((a, b) => naturalCompare(a.title, b.title));
 
     const totalSubjects = subjectsWithTitles.length;
     const totalPages = Math.ceil(totalSubjects / pageSize);
@@ -314,6 +312,7 @@ app.get('/', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// Updated /ask route to handle summaries as prompts
 app.post('/ask', ensureAuthenticated, async (req, res) => {
   const subjectText = req.body.subject;
   const model = req.body.model || 'gpt-4';
@@ -321,12 +320,18 @@ app.post('/ask', ensureAuthenticated, async (req, res) => {
   const selectedPromptId = req.body.selectedPromptId;
 
   try {
-    // Fetch the prompt text from Redis based on the selectedPromptId
     let prompt;
+
     if (selectedPromptId) {
+      // Try fetching from prompts
       prompt = await client.get(`prompts:${selectedPromptId}:prompttext`);
+
+      // If not found in prompts, try fetching from summaries
       if (!prompt) {
-        throw new Error('Selected prompt not found.');
+        prompt = await client.get(`summaries:${selectedPromptId}:summaryText`);
+        if (!prompt) {
+          throw new Error('Selected prompt not found.');
+        }
       }
     } else {
       throw new Error('No prompt selected.');
@@ -552,10 +557,7 @@ app.post('/generate-summary', ensureAuthenticated, async (req, res) => {
 
     const subjectText = await getSubjectText(subjectid);
     const model = await getModel(subjectid);
-    const userApiKey = await client.hGet(
-      `user:${req.user.email}`,
-      'apiKey'
-    );
+    const userApiKey = await client.hGet(`user:${req.user.email}`, 'apiKey');
 
     if (!userApiKey) {
       throw new Error('API Key not found for user');
@@ -627,7 +629,6 @@ app.get('/summaries/:id', ensureAuthenticated, async (req, res) => {
     res.status(500).json({ success: false, error: 'Error fetching summary' });
   }
 });
-
 
 // Add a new summary
 app.post('/summaries', ensureAuthenticated, async (req, res) => {
@@ -709,17 +710,13 @@ app.post('/update-merged-content', ensureAuthenticated, async (req, res) => {
 app.get('/results-format', ensureAuthenticated, (req, res) => {
   fs.readFile('results-format.txt', 'utf-8', (err, data) => {
     if (err) {
-      return res
-        .status(500)
-        .send('Error reading results format file');
+      return res.status(500).send('Error reading results format file');
     }
     try {
       const replacements = JSON.parse(data);
       res.json(replacements);
     } catch (err) {
-      res
-        .status(500)
-        .send('Error parsing results format file');
+      res.status(500).send('Error parsing results format file');
     }
   });
 });
@@ -749,9 +746,7 @@ app.get('/prompts/:id', ensureAuthenticated, async (req, res) => {
   try {
     const { id } = req.params;
     const title = await client.get(`prompts:${id}:title`);
-    const prompttext = await client.get(
-      `prompts:${id}:prompttext`
-    );
+    const prompttext = await client.get(`prompts:${id}:prompttext`);
     res.json({ title, prompttext });
   } catch (err) {
     console.error('Error fetching prompt:', err);
@@ -857,10 +852,7 @@ app.get('/list-rwes-paginated', ensureAuthenticated, async (req, res) => {
     const rwes = await getAllRwes();
     const totalRwes = rwes.length;
     const totalPages = Math.ceil(totalRwes / pageSize);
-    const paginatedRwes = rwes.slice(
-      (page - 1) * pageSize,
-      page * pageSize
-    );
+    const paginatedRwes = rwes.slice((page - 1) * pageSize, page * pageSize);
 
     res.json({
       success: true,
@@ -908,16 +900,12 @@ app.delete('/delete-rwe/:rweid', ensureAuthenticated, async (req, res) => {
   try {
     const result = await client.del(hashKey);
     if (result === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: 'RWE not found.' });
+      return res.status(404).json({ success: false, error: 'RWE not found.' });
     }
     res.json({ success: true, message: 'RWE deleted successfully.' });
   } catch (err) {
     console.error('Error deleting RWE:', err);
-    res
-      .status(500)
-      .json({ success: false, error: 'Error deleting RWE.' });
+    res.status(500).json({ success: false, error: 'Error deleting RWE.' });
   }
 });
 
@@ -935,9 +923,7 @@ app.get('/list-users', ensureAuthenticated, async (req, res) => {
     res.json({ success: true, users });
   } catch (err) {
     console.error('Error listing users:', err);
-    res
-      .status(500)
-      .json({ success: false, error: 'Error listing users.' });
+    res.status(500).json({ success: false, error: 'Error listing users.' });
   }
 });
 
@@ -946,24 +932,18 @@ app.get('/get-user', ensureAuthenticated, async (req, res) => {
   const email = req.query.email;
 
   if (!email) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Email is required.' });
+    return res.status(400).json({ success: false, error: 'Email is required.' });
   }
 
   try {
     const user = await client.hGetAll(`user:${email}`);
     if (Object.keys(user).length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: 'User not found.' });
+      return res.status(404).json({ success: false, error: 'User not found.' });
     }
     res.json({ success: true, user });
   } catch (err) {
     console.error('Error fetching user:', err);
-    res
-      .status(500)
-      .json({ success: false, error: 'Error fetching user.' });
+    res.status(500).json({ success: false, error: 'Error fetching user.' });
   }
 });
 
@@ -973,15 +953,11 @@ app.post('/update-user', ensureAuthenticated, async (req, res) => {
   const { name, registered, apiKey } = req.body;
 
   if (!email) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Email is required.' });
+    return res.status(400).json({ success: false, error: 'Email is required.' });
   }
 
   if (!name || (registered !== 'true' && registered !== 'false')) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Invalid data provided.' });
+    return res.status(400).json({ success: false, error: 'Invalid data provided.' });
   }
 
   try {
@@ -989,9 +965,7 @@ app.post('/update-user', ensureAuthenticated, async (req, res) => {
     res.json({ success: true, message: 'User updated successfully.' });
   } catch (err) {
     console.error('Error updating user:', err);
-    res
-      .status(500)
-      .json({ success: false, error: 'Error updating user.' });
+    res.status(500).json({ success: false, error: 'Error updating user.' });
   }
 });
 
@@ -1000,24 +974,18 @@ app.delete('/delete-user', ensureAuthenticated, async (req, res) => {
   const email = req.query.email;
 
   if (!email) {
-    return res
-      .status(400)
-      .json({ success: false, error: 'Email is required.' });
+    return res.status(400).json({ success: false, error: 'Email is required.' });
   }
 
   try {
     const result = await client.del(`user:${email}`);
     if (result === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: 'User not found.' });
+      return res.status(404).json({ success: false, error: 'User not found.' });
     }
     res.json({ success: true, message: 'User deleted successfully.' });
   } catch (err) {
     console.error('Error deleting user:', err);
-    res
-      .status(500)
-      .json({ success: false, error: 'Error deleting user.' });
+    res.status(500).json({ success: false, error: 'Error deleting user.' });
   }
 });
 
