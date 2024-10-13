@@ -473,6 +473,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/js/all.min.js"></script>
   <script>
     let threatToDelete = null;
+    let selectedSummaryPromptId = null;
 
     $(document).ready(function() {
       // Event listener for showing the summaries modal
@@ -480,7 +481,6 @@
         fetchSummaries();  // Call the function that fetches summaries and populates the list
       });
     });
-
 
     document.addEventListener('DOMContentLoaded', function () {
     const textareas = document.querySelectorAll('textarea');
@@ -716,17 +716,11 @@ function viewSummary(id, context) {
     });
 }
 
-
-
 function selectSummary(id, title) {
+  selectedSummaryPromptId = id;
+
   // Set the value of an appropriate field with the selected summary title.
   document.getElementById('title').value = title;
-
-  // Set a hidden input with the selected summary ID if needed.
-  const selectedPromptIdInput = document.getElementById('selectedPromptId');
-  if (selectedPromptIdInput) {
-    selectedPromptIdInput.value = id;
-  }
 
   // Hide the summaries modal.
   const summariesModal = bootstrap.Modal.getInstance(document.getElementById('summariesModal'));
@@ -734,7 +728,6 @@ function selectSummary(id, title) {
     summariesModal.hide();
   }
 
-  // Log or show a success message to confirm the selection has been made.
   console.log(`Selected Summary ID: ${id}, Title: ${title}`);
 }
 
@@ -888,7 +881,7 @@ function generateSummary(subjectid) {
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ subjectid })
+    body: JSON.stringify({ subjectid, selectedSummaryPromptId })
   }).then(response => response.json())
     .then(data => {
       loadingModal.hide();

@@ -536,8 +536,11 @@ app.post('/generate-more', ensureAuthenticated, async (req, res) => {
   }
 });
 
+// app.js
+
 app.post('/generate-summary', ensureAuthenticated, async (req, res) => {
   const { subjectid } = req.body;
+  let selectedSummaryPromptId = req.body.selectedSummaryPromptId;
   const summaryKey = `subject:${subjectid}:summary`;
 
   try {
@@ -549,10 +552,32 @@ app.post('/generate-summary', ensureAuthenticated, async (req, res) => {
       throw new Error('No existing response found for subject');
     }
 
-    // Fetch the summary template from Redis
-    const promptSummary = await client.get('prompt:summary:template');
-    if (!promptSummary) {
-      throw new Error('No summary template found in Redis');
+    let promptSummary;
+
+    if (selectedSummaryPromptId) {
+      // Store the selected summary prompt ID for this subject
+      await client.set(`subject:${subjectid}:summarypromptid`, selectedSummaryPromptId);
+    } else {
+      // Try to get the selected summary prompt ID from Redis
+      selectedSummaryPromptId = await client.get(`subject:${subjectid}:summarypromptid`);
+    }
+
+    if (selectedSummaryPromptId) {
+      // Fetch the summary template from Redis using the selected summary prompt ID
+      promptSummary = await client.get(`prompts:${selectedSummaryPromptId}:prompttext`);
+      if (!promptSummary) {
+        // If not found in prompts, try fetching from summaries
+        promptSummary = await client.get(`summaries:${selectedSummaryPromptId}:summaryText`);
+        if (!promptSummary) {
+          throw new Error('Selected summary prompt not found.');
+        }
+      }
+    } else {
+      // Fetch the default summary template from Redis
+      promptSummary = await client.get('prompt:summary:template');
+      if (!promptSummary) {
+        throw new Error('No summary template found in Redis');
+      }
     }
 
     const subjectText = await getSubjectText(subjectid);
@@ -591,6 +616,7 @@ app.post('/generate-summary', ensureAuthenticated, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 // Summaries API endpoints
 
