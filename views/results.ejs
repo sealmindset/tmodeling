@@ -18,7 +18,8 @@
       background-color: #f8f9fa;
       padding-top: 20px;
     }
-    .navbar-vertical .nav-link, .navbar-vertical .nav-label {
+    .navbar-vertical .nav-link,
+    .navbar-vertical .nav-label {
       font-size: 18px;
       margin-bottom: 10px;
     }
@@ -31,41 +32,15 @@
       padding: 20px;
       width: 100%;
     }
-    textarea, input[type="text"] {
+    textarea,
+    input[type="text"] {
       width: 100%;
       box-sizing: border-box;
     }
-    textarea#subject, textarea#title, textarea#editedResponse {
+    textarea#subject,
+    textarea#title,
+    textarea#editedResponse {
       height: auto;
-    }
-
-    .modal-dialog {
-      max-width: 100%;
-      margin: 30px auto;
-    }
-
-    #summaryDialog {
-      display: none;
-      position: fixed;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      border: 1px solid #ccc;
-      padding: 20px;
-      background: white;
-      z-index: 1000;
-      width: 90%;
-      max-height: 80vh;
-      overflow-y: auto;
-    }
-
-    #summaryDialog textarea {
-      width: 100%;
-      height: 100%;
-      min-height: 200px;
-      max-height: 600px;
-      resize: vertical;
-      overflow-y: scroll;
     }
 
     .modal-content {
@@ -100,10 +75,16 @@
         </form>
         <span class="nav-label">Summary</span>
         <span class="nav-label">Summaries</span>
-        <button class="nav-link btn btn-link p-0" data-bs-toggle="modal" data-bs-target="#summariesModal"><i class="fa fa-file-text"></i>Manage Summaries</button>
-        <button id="newSummaryButton" class="nav-link btn btn-link p-0" onclick="generateSummary('<%= subjectid %>')"><i class="fa fa-file"></i>New Summary</button>
+        <button class="nav-link btn btn-link p-0" data-bs-toggle="modal" data-bs-target="#summariesModal">
+          <i class="fa fa-file-text"></i>Manage Summaries
+        </button>
+        <button id="newSummaryButton" class="nav-link btn btn-link p-0" onclick="generateSummary('<%= subjectid %>')">
+          <i class="fa fa-file"></i>New Summary
+        </button>
         <% if (summary) { %>
-          <button class="nav-link btn btn-link p-0" onclick="viewSummary('<%= subjectid %>', 'navbar')"><i class="fa fa-eye"></i> View Summary</button>
+          <button class="nav-link btn btn-link p-0" onclick="viewSummary('<%= subjectid %>', 'navbar')">
+            <i class="fa fa-eye"></i> View Summary
+          </button>
         <% } %>
         <span class="nav-label">Report</span>
         <button class="nav-link btn btn-link p-0" onclick="fetchReports()"><i class="fa fa-file-text"></i>Report Format</button>
@@ -131,14 +112,17 @@
         </div>
         <div class="mb-3">
           <label for="editedResponse" class="form-label">Response:</label>
-          <textarea name="editedResponse" id="editedResponse" rows="12" class="form-control" style="min-height: 840px;"><%= response %></textarea>
+          <textarea name="editedResponse" id="editedResponse" rows="12" class="form-control" style="min-height: 840px; overflow-y: auto;"><%= response %></textarea>
         </div>
+
+        <!-- The main slider/number controls for the "Response:" textarea -->
         <div class="mb-3 d-flex align-items-center">
           <label for="heightInput" class="form-label me-2">Height:</label>
           <input type="number" id="heightInput" class="form-control me-2" style="width: 80px;" value="840">
           <input type="range" id="heightSlider" class="form-range" min="750" max="6000" value="840">
           <span id="heightValue" class="ms-2">840px</span>
         </div>
+
         <button type="submit" class="btn btn-primary">Save</button>
         <button type="button" class="btn btn-secondary" onclick="showThreatsModal()">View Threats</button>
       </form>
@@ -174,11 +158,28 @@
               <form id="modify-summary-form">
                 <div class="mb-3">
                   <label class="form-label">Title</label>
-                  <textarea class="form-control" id="summary-title" rows="1" placeholder="Title"></textarea>
+                  <textarea class="form-control" id="summary-title" rows="1" placeholder="Title" style="overflow-y: auto;"></textarea>
                 </div>
+
+                <!-- Slider/number for "Title" textarea -->
+                <div class="mb-3 d-flex align-items-center">
+                  <label for="heightInput_summaryTitle" class="form-label me-2">Height:</label>
+                  <input type="number" id="heightInput_summaryTitle" class="form-control me-2" style="width: 80px;" value="60">
+                  <input type="range" id="heightSlider_summaryTitle" class="form-range" min="50" max="3000" value="60">
+                  <span id="heightValue_summaryTitle" class="ms-2">60px</span>
+                </div>
+
                 <div class="mb-3">
                   <label class="form-label">Summary</label>
-                  <textarea class="form-control" id="summary-text" rows="6" placeholder="Summary content"></textarea>
+                  <textarea class="form-control" id="summary-text" rows="6" placeholder="Summary content" style="overflow-y: auto;"></textarea>
+                </div>
+
+                <!-- Slider/number for "Summary" textarea -->
+                <div class="mb-3 d-flex align-items-center">
+                  <label for="heightInput_summaryText" class="form-label me-2">Height:</label>
+                  <input type="number" id="heightInput_summaryText" class="form-control me-2" style="width: 80px;" value="200">
+                  <input type="range" id="heightSlider_summaryText" class="form-range" min="100" max="3000" value="200">
+                  <span id="heightValue_summaryText" class="ms-2">200px</span>
                 </div>
               </form>
             </div>
@@ -203,11 +204,28 @@
               <form id="new-summary-form">
                 <div class="mb-3">
                   <label class="form-label">Title</label>
-                  <textarea class="form-control" id="new-summary-title" rows="1" placeholder="Title"></textarea>
+                  <textarea class="form-control" id="new-summary-title" rows="1" placeholder="Title" style="overflow-y: auto;"></textarea>
                 </div>
+
+                <!-- Slider/number for New Summary "Title" -->
+                <div class="mb-3 d-flex align-items-center">
+                  <label for="heightInput_newSummaryTitle" class="form-label me-2">Height:</label>
+                  <input type="number" id="heightInput_newSummaryTitle" class="form-control me-2" style="width: 80px;" value="60">
+                  <input type="range" id="heightSlider_newSummaryTitle" class="form-range" min="50" max="3000" value="60">
+                  <span id="heightValue_newSummaryTitle" class="ms-2">60px</span>
+                </div>
+
                 <div class="mb-3">
                   <label class="form-label">Summary</label>
-                  <textarea class="form-control" id="new-summary-text" rows="6" placeholder="Summary content"></textarea>
+                  <textarea class="form-control" id="new-summary-text" rows="6" placeholder="Summary content" style="overflow-y: auto;"></textarea>
+                </div>
+
+                <!-- Slider/number for New Summary "Content" -->
+                <div class="mb-3 d-flex align-items-center">
+                  <label for="heightInput_newSummaryText" class="form-label me-2">Height:</label>
+                  <input type="number" id="heightInput_newSummaryText" class="form-control me-2" style="width: 80px;" value="200">
+                  <input type="range" id="heightSlider_newSummaryText" class="form-range" min="100" max="3000" value="200">
+                  <span id="heightValue_newSummaryText" class="ms-2">200px</span>
                 </div>
               </form>
             </div>
@@ -219,13 +237,33 @@
         </div>
       </div>
 
-      <div id="summaryDialog">
-        <h2>Report</h2>
-        <textarea id="summaryContent" class="form-control"></textarea>
-        <br>
-        <button class="btn btn-secondary" onclick="closeSummaryDialog()">Close</button>
-        <button class="btn btn-primary" onclick="saveSummary('<%= subjectid %>')">Save</button>
+      <!-- Summary Dialog Modal (Bootstrap) -->
+      <div class="modal fade" id="summaryDialogModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Report</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <textarea id="summaryContent" class="form-control" style="min-height: 300px; overflow-y: auto; resize: vertical;"></textarea>
+              
+              <!-- Slider/number for the "Report" textarea -->
+              <div class="mt-3 d-flex align-items-center">
+                <label for="heightInput_summaryContent" class="form-label me-2">Height:</label>
+                <input type="number" id="heightInput_summaryContent" class="form-control me-2" style="width: 80px;" value="300">
+                <input type="range" id="heightSlider_summaryContent" class="form-range" min="200" max="3000" value="300">
+                <span id="heightValue_summaryContent" class="ms-2">300px</span>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="closeSummaryDialog()">Close</button>
+              <button class="btn btn-primary" onclick="saveSummary('<%= subjectid %>')">Save</button>
+            </div>
+          </div>
+        </div>
       </div>
+      <!-- End new summary dialog modal -->
 
       <!-- Report List Modal -->
       <div class="modal fade" id="reportModal" tabindex="-1" aria-hidden="true">
@@ -253,12 +291,28 @@
             <div class="modal-body">
               <div class="mb-3">
                 <label class="form-label">Title</label>
-                <textarea id="report-title" class="form-control" rows="1"></textarea>
+                <textarea id="report-title" class="form-control" rows="1" style="overflow-y: auto;"></textarea>
               </div>
+              <!-- Slider/number for the "report-title" textarea -->
+              <div class="mb-3 d-flex align-items-center">
+                <label for="heightInput_reportTitle" class="form-label me-2">Height:</label>
+                <input type="number" id="heightInput_reportTitle" class="form-control me-2" style="width: 80px;" value="60">
+                <input type="range" id="heightSlider_reportTitle" class="form-range" min="50" max="3000" value="60">
+                <span id="heightValue_reportTitle" class="ms-2">60px</span>
+              </div>
+
               <div class="mb-3">
                 <label class="form-label">Report</label>
-                <textarea id="report-text" class="form-control" rows="10" style="height: 640px;"></textarea>
+                <textarea id="report-text" class="form-control" rows="10" style="min-height: 300px; overflow-y: auto;"></textarea>
               </div>
+              <!-- Slider/number for the "report-text" textarea -->
+              <div class="mb-3 d-flex align-items-center">
+                <label for="heightInput_reportText" class="form-label me-2">Height:</label>
+                <input type="number" id="heightInput_reportText" class="form-control me-2" style="width: 80px;" value="300">
+                <input type="range" id="heightSlider_reportText" class="form-range" min="200" max="3000" value="300">
+                <span id="heightValue_reportText" class="ms-2">300px</span>
+              </div>
+
               <button type="button" class="btn btn-primary" onclick="updateReport()">Update</button>
               <button type="button" class="btn btn-danger" onclick="deleteReport()">Delete</button>
             </div>
@@ -329,16 +383,40 @@
               <form id="addRweForm">
                 <div class="mb-3">
                   <label class="form-label">Threat</label>
-                  <textarea class="form-control" id="addRweThreat" name="threat" required></textarea>
+                  <textarea class="form-control" id="addRweThreat" name="threat" required style="overflow-y: auto;"></textarea>
                 </div>
+                <!-- Height controls for "addRweThreat" -->
+                <div class="mb-3 d-flex align-items-center">
+                  <label for="heightInput_addRweThreat" class="form-label me-2">Height:</label>
+                  <input type="number" id="heightInput_addRweThreat" class="form-control me-2" style="width: 80px;" value="80">
+                  <input type="range" id="heightSlider_addRweThreat" class="form-range" min="50" max="3000" value="80">
+                  <span id="heightValue_addRweThreat" class="ms-2">80px</span>
+                </div>
+
                 <div class="mb-3">
                   <label class="form-label">Description</label>
-                  <textarea class="form-control" id="addRweDescription" name="description" required></textarea>
+                  <textarea class="form-control" id="addRweDescription" name="description" required style="overflow-y: auto;"></textarea>
                 </div>
+                <!-- Height controls for "addRweDescription" -->
+                <div class="mb-3 d-flex align-items-center">
+                  <label for="heightInput_addRweDescription" class="form-label me-2">Height:</label>
+                  <input type="number" id="heightInput_addRweDescription" class="form-control me-2" style="width: 80px;" value="80">
+                  <input type="range" id="heightSlider_addRweDescription" class="form-range" min="50" max="3000" value="80">
+                  <span id="heightValue_addRweDescription" class="ms-2">80px</span>
+                </div>
+
                 <div class="mb-3">
                   <label class="form-label">Reference</label>
-                  <textarea class="form-control" id="addRweReference" name="reference" required></textarea>
+                  <textarea class="form-control" id="addRweReference" name="reference" required style="overflow-y: auto;"></textarea>
                 </div>
+                <!-- Height controls for "addRweReference" -->
+                <div class="mb-3 d-flex align-items-center">
+                  <label for="heightInput_addRweReference" class="form-label me-2">Height:</label>
+                  <input type="number" id="heightInput_addRweReference" class="form-control me-2" style="width: 80px;" value="80">
+                  <input type="range" id="heightSlider_addRweReference" class="form-range" min="50" max="3000" value="80">
+                  <span id="heightValue_addRweReference" class="ms-2">80px</span>
+                </div>
+
                 <button type="submit" class="btn btn-primary">Save</button>
               </form>
             </div>
@@ -380,16 +458,40 @@
               <form id="modifyRweForm">
                 <div class="mb-3">
                   <label class="form-label">Threat</label>
-                  <textarea class="form-control" id="modifyRweThreat" name="threat" required></textarea>
+                  <textarea class="form-control" id="modifyRweThreat" name="threat" required style="overflow-y: auto;"></textarea>
                 </div>
+                <!-- Height controls for "modifyRweThreat" -->
+                <div class="mb-3 d-flex align-items-center">
+                  <label for="heightInput_modifyRweThreat" class="form-label me-2">Height:</label>
+                  <input type="number" id="heightInput_modifyRweThreat" class="form-control me-2" style="width: 80px;" value="80">
+                  <input type="range" id="heightSlider_modifyRweThreat" class="form-range" min="50" max="3000" value="80">
+                  <span id="heightValue_modifyRweThreat" class="ms-2">80px</span>
+                </div>
+
                 <div class="mb-3">
                   <label class="form-label">Description</label>
-                  <textarea class="form-control" id="modifyRweDescription" name="description" required></textarea>
+                  <textarea class="form-control" id="modifyRweDescription" name="description" required style="overflow-y: auto;"></textarea>
                 </div>
+                <!-- Height controls for "modifyRweDescription" -->
+                <div class="mb-3 d-flex align-items-center">
+                  <label for="heightInput_modifyRweDescription" class="form-label me-2">Height:</label>
+                  <input type="number" id="heightInput_modifyRweDescription" class="form-control me-2" style="width: 80px;" value="80">
+                  <input type="range" id="heightSlider_modifyRweDescription" class="form-range" min="50" max="3000" value="80">
+                  <span id="heightValue_modifyRweDescription" class="ms-2">80px</span>
+                </div>
+
                 <div class="mb-3">
                   <label class="form-label">Reference</label>
-                  <textarea class="form-control" id="modifyRweReference" name="reference" required></textarea>
+                  <textarea class="form-control" id="modifyRweReference" name="reference" required style="overflow-y: auto;"></textarea>
                 </div>
+                <!-- Height controls for "modifyRweReference" -->
+                <div class="mb-3 d-flex align-items-center">
+                  <label for="heightInput_modifyRweReference" class="form-label me-2">Height:</label>
+                  <input type="number" id="heightInput_modifyRweReference" class="form-control me-2" style="width: 80px;" value="80">
+                  <input type="range" id="heightSlider_modifyRweReference" class="form-range" min="50" max="3000" value="80">
+                  <span id="heightValue_modifyRweReference" class="ms-2">80px</span>
+                </div>
+
                 <button type="button" class="btn btn-danger" onclick="confirmDeleteRwe()">Delete</button>
                 <button type="submit" class="btn btn-primary">Update</button>
               </form>
@@ -459,6 +561,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-markdown/2.10.0/js/bootstrap-markdown.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/14.1.2/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/js/all.min.js"></script>
+
   <script>
     let threatToDelete = null;
     let selectedSummaryPromptId = null;
@@ -494,64 +597,83 @@
       return fetch(url, options).then(res => res.json());
     }
 
-    function adjustTextareaHeight(textarea) {
-      textarea.style.height = 'auto'; 
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 800)}px`; 
-      textarea.style.overflowY = (textarea.scrollHeight > 800) ? 'scroll' : 'hidden';
+    // Hook up a slider + number input to dynamically set min-height on a textarea
+    function initializeHeightControls(textAreaId, inputId, sliderId, valueId) {
+      const textArea = document.getElementById(textAreaId);
+      const numberInput = document.getElementById(inputId);
+      const slider = document.getElementById(sliderId);
+      const valueSpan = document.getElementById(valueId);
+
+      if (!textArea || !numberInput || !slider || !valueSpan) return;
+
+      // Set initial style
+      textArea.style.minHeight = numberInput.value + 'px';
+      textArea.style.overflowY = 'auto';
+
+      function adjustHeight() {
+        const newHeight = parseInt(this.value, 10);
+        numberInput.value = newHeight;
+        slider.value = newHeight;
+        textArea.style.minHeight = newHeight + "px";
+        textArea.style.overflowY = "auto";
+        valueSpan.textContent = newHeight + "px";
+      }
+
+      numberInput.addEventListener("input", adjustHeight);
+      slider.addEventListener("input", adjustHeight);
     }
 
-    function copyToClipboard(elementId) {
-      const textarea = document.getElementById(elementId);
-      textarea.select();
-      document.execCommand('copy');
-      showAlert('Copied to clipboard!');
-    }
+    document.addEventListener('DOMContentLoaded', function() {
+      // Initialize the main "Response" controls
+      const editedResponse = document.getElementById('editedResponse');
+      const heightInput = document.getElementById('heightInput');
+      const heightSlider = document.getElementById('heightSlider');
+      const heightValue = document.getElementById('heightValue');
 
-    function updateItem(endpoint, payload, successMessage, errorMessage, afterSuccess) {
-      sendJsonRequest(endpoint, 'PUT', payload)
-        .then(data => {
-          if (data.success) {
-            showAlert(successMessage);
-            if (afterSuccess) afterSuccess();
-          } else {
-            showAlert(errorMessage);
-          }
-        })
-        .catch(error => {
-          console.error(errorMessage, error);
-          showAlert(errorMessage);
-        });
-    }
+      function adjustMainResponseHeight() {
+        const newHeight = parseInt(this.value, 10);
+        heightInput.value = newHeight;
+        heightSlider.value = newHeight;
+        editedResponse.style.minHeight = `${newHeight}px`;
+        editedResponse.style.overflowY = 'auto';
+        heightValue.textContent = `${newHeight}px`;
+      }
 
-    function deleteItem(endpoint, successMessage, errorMessage, afterSuccess) {
-      sendJsonRequest(endpoint, 'DELETE')
-        .then(data => {
-          if (data.success) {
-            showAlert(successMessage);
-            if (afterSuccess) afterSuccess();
-          } else {
-            showAlert(errorMessage);
-          }
-        })
-        .catch(error => {
-          console.error(errorMessage, error);
-          showAlert(errorMessage);
-        });
-    }
+      if (editedResponse && heightInput && heightSlider && heightValue) {
+        editedResponse.style.minHeight = '840px';
+        editedResponse.style.overflowY = 'auto';
 
-    $(document).ready(function() {
-      $('#summariesModal').on('show.bs.modal', function () {
-        fetchSummaries();
-      });
-    });
+        heightInput.addEventListener('input', adjustMainResponseHeight);
+        heightSlider.addEventListener('input', adjustMainResponseHeight);
+      }
 
-    document.addEventListener('DOMContentLoaded', function () {
-      const textareas = document.querySelectorAll('textarea');
-      textareas.forEach(textarea => {
-        adjustTextareaHeight(textarea);
-        textarea.addEventListener('input', () => adjustTextareaHeight(textarea));
-      });
+      // Initialize each modal's textareas that have sliders
+      // Modify Summary Modal
+      initializeHeightControls("summary-title", "heightInput_summaryTitle", "heightSlider_summaryTitle", "heightValue_summaryTitle");
+      initializeHeightControls("summary-text", "heightInput_summaryText", "heightSlider_summaryText", "heightValue_summaryText");
 
+      // New Summary Modal
+      initializeHeightControls("new-summary-title", "heightInput_newSummaryTitle", "heightSlider_newSummaryTitle", "heightValue_newSummaryTitle");
+      initializeHeightControls("new-summary-text", "heightInput_newSummaryText", "heightSlider_newSummaryText", "heightValue_newSummaryText");
+
+      // Summary Dialog Modal
+      initializeHeightControls("summaryContent", "heightInput_summaryContent", "heightSlider_summaryContent", "heightValue_summaryContent");
+
+      // Modify Report Modal
+      initializeHeightControls("report-title", "heightInput_reportTitle", "heightSlider_reportTitle", "heightValue_reportTitle");
+      initializeHeightControls("report-text", "heightInput_reportText", "heightSlider_reportText", "heightValue_reportText");
+
+      // Add RWE Modal
+      initializeHeightControls("addRweThreat", "heightInput_addRweThreat", "heightSlider_addRweThreat", "heightValue_addRweThreat");
+      initializeHeightControls("addRweDescription", "heightInput_addRweDescription", "heightSlider_addRweDescription", "heightValue_addRweDescription");
+      initializeHeightControls("addRweReference", "heightInput_addRweReference", "heightSlider_addRweReference", "heightValue_addRweReference");
+
+      // Modify RWE Modal
+      initializeHeightControls("modifyRweThreat", "heightInput_modifyRweThreat", "heightSlider_modifyRweThreat", "heightValue_modifyRweThreat");
+      initializeHeightControls("modifyRweDescription", "heightInput_modifyRweDescription", "heightSlider_modifyRweDescription", "heightValue_modifyRweDescription");
+      initializeHeightControls("modifyRweReference", "heightInput_modifyRweReference", "heightSlider_modifyRweReference", "heightValue_modifyRweReference");
+
+      // Initialize the markdown editor on the main "editedResponse"
       $('#editedResponse').markdown({
         iconlibrary: 'fa',
         additionalButtons: [[{
@@ -582,66 +704,20 @@
       document.querySelectorAll('.btn[data-handler="bootstrap-markdown-cmdPreview"]').forEach(button => {
         button.style.display = 'none';
       });
-
-      const heightInput = document.getElementById('heightInput');
-      const heightSlider = document.getElementById('heightSlider');
-      const heightValue = document.getElementById('heightValue');
-      const editedResponse = document.getElementById('editedResponse');
-
-      editedResponse.style.minHeight = '840px';
-      heightInput.addEventListener('input', adjustHeight);
-      heightSlider.addEventListener('input', adjustHeight);
-
-      function adjustHeight() {
-        const newHeight = parseInt(this.value, 10);
-        heightInput.value = newHeight;
-        heightSlider.value = newHeight;
-        editedResponse.style.minHeight = `${newHeight}px`;
-        heightValue.textContent = `${newHeight}px`;
-      }
-
-      $('#addRweForm').on('submit', function (event) {
-        event.preventDefault();
-        const threat = $('#addRweThreat').val().trim();
-        const description = $('#addRweDescription').val().trim();
-        const reference = $('#addRweReference').val().trim();
-
-        if (!threat || !description || !reference) {
-          showAlert('All fields are required.');
-          return;
-        }
-
-        $.post('/add-rwe', { threat, description, reference }, function (data) {
-          if (data.success) {
-            showAlert('RWE added successfully!');
-            closeModal('addRweModal');
-          } else {
-            showAlert('Error adding RWE.');
-          }
-        }).fail(function (error) {
-          console.error('Error adding RWE:', error);
-          showAlert('Error adding RWE.');
-        });
-      });
-
-      $('#modifyRweForm').on('submit', function (event) {
-        event.preventDefault();
-        const rweid = $(this).data('rweid');
-        const threat = $('#modifyRweThreat').val();
-        const description = $('#modifyRweDescription').val();
-        const reference = $('#modifyRweReference').val();
-
-        $.post(`/update-rwe/${rweid}`, { threat, description, reference }, function (data) {
-          if (data.success) {
-            showAlert('RWE updated successfully!');
-            closeModal('modifyRweModal');
-          } else {
-            showAlert('Error updating RWE.');
-          }
-        });
-      });
-
     });
+
+    $(document).ready(function() {
+      $('#summariesModal').on('show.bs.modal', function () {
+        fetchSummaries();
+      });
+    });
+
+    function copyToClipboard(elementId) {
+      const textarea = document.getElementById(elementId);
+      textarea.select();
+      document.execCommand('copy');
+      showAlert('Copied to clipboard!');
+    }
 
     // ---------- Summaries Handling ----------
     function fetchSummaries() {
@@ -785,17 +861,20 @@
       });
     }
 
+    // Replaces old summaryDialog with a Bootstrap modal
     function showSummaryDialog(content = '') {
-      const dialog = document.getElementById('summaryDialog');
       const textarea = document.getElementById('summaryContent');
       textarea.value = content;
-      adjustTextareaHeight(textarea);
-      dialog.style.display = 'block';
+
+      const summaryDialogModal = new bootstrap.Modal(document.getElementById('summaryDialogModal'));
+      summaryDialogModal.show();
     }
 
     function closeSummaryDialog() {
-      const dialog = document.getElementById('summaryDialog');
-      dialog.style.display = 'none';
+      const summaryDialogModal = bootstrap.Modal.getInstance(document.getElementById('summaryDialogModal'));
+      if (summaryDialogModal) {
+        summaryDialogModal.hide();
+      }
     }
 
     function saveSummary(subjectid) {
@@ -814,7 +893,10 @@
     }
 
     function generateSummary(subjectid) {
-      const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'), { backdrop: 'static', keyboard: false });
+      const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'), {
+        backdrop: 'static',
+        keyboard: false
+      });
       loadingModal.show();
 
       sendJsonRequest('/generate-summary', 'POST', { subjectid, selectedSummaryPromptId })
@@ -829,7 +911,10 @@
     }
 
     function showLoadingModal() {
-      const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'), { backdrop: 'static', keyboard: false });
+      const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'), {
+        backdrop: 'static',
+        keyboard: false
+      });
       loadingModal.show();
     }
 
@@ -840,6 +925,7 @@
         const responseTextarea = document.getElementById('editedResponse');
         let responseContent = responseTextarea.value;
 
+        // Example strip out asterisks
         responseContent = responseContent.replace(/\*/g, '');
 
         replacements.forEach(({ pattern, replacement }) => {
@@ -847,9 +933,9 @@
           responseContent = responseContent.replace(regex, replacement);
         });
 
+        // Example fix for line breaks + colons
         responseContent = responseContent.replace(/(\n\n)([A-Za-z].*?):/g, '$1\n$2:');
         responseTextarea.value = responseContent;
-        adjustTextareaHeight(responseTextarea);
       } catch (error) {
         console.error('Error fetching format:', error);
       }
@@ -873,9 +959,7 @@
         const regex = new RegExp(findText, 'g');
         responseContent = responseContent.replace(regex, replaceText);
         responseTextarea.value = responseContent;
-        adjustTextareaHeight(responseTextarea);
       }
-
       closeFindReplaceDialog();
     }
 
@@ -895,7 +979,9 @@
         threatItem.innerHTML = `
           <input type="checkbox" class="form-check-input me-1" value="${match.index}-${match[1]}">
           ${match[1]}
-          <button type="button" class="btn btn-danger btn-sm float-end" onclick="showConfirmDeleteModal(${match.index}, '${match[1]}')">Delete</button>
+          <button type="button" class="btn btn-danger btn-sm float-end" onclick="showConfirmDeleteModal(${match.index}, '${match[1]}')">
+            Delete
+          </button>
         `;
         threatsList.appendChild(threatItem);
       }
@@ -922,7 +1008,6 @@
         let responseContent = responseTextarea.value;
         responseContent = responseContent.replace(threatToDelete.details, '');
         responseTextarea.value = responseContent;
-        adjustTextareaHeight(responseTextarea);
 
         saveContent();
         closeModal('confirmDeleteThreatModal');
@@ -970,7 +1055,7 @@
           threatDetails.className = 'col-md-6';
           threatDetails.innerHTML = `
             <h5>${title}</h5>
-            <textarea class="form-control threat-content threat-markdown">${threatMatch[1]}</textarea>
+            <textarea class="form-control threat-content threat-markdown" style="height: 400px; overflow-y:auto;">${threatMatch[1]}</textarea>
           `;
           compareContent.appendChild(threatDetails);
         }
@@ -989,7 +1074,6 @@
       }
     }
 
-    // Debounce/Throttle example is left as-is, you can refactor if needed
     function debounceThrottle(func, wait, throttleLimit) {
       let timeout, lastCall = 0;
       return function(...args) {
@@ -1074,12 +1158,38 @@
         });
     }
 
-    function confirmDeleteRwe() {
-      const rweid = $('#modifyRweForm').data('rweid');
-      deleteItem(`/delete-rwe/${rweid}`, 'RWE deleted successfully!', 'Error deleting RWE.', () => {
-        closeModal('modifyRweModal');
-        listRwes();
-      });
+    function confirmDeleteRwe(rweid) {
+      // If called with an rweid from the card's "Delete" button:
+      if (rweid) {
+        // Straight delete from the listing UI
+        deleteItem(`/delete-rwe/${rweid}`, 'RWE deleted successfully!', 'Error deleting RWE.', () => {
+          closeModal('listRweModal');
+          listRwes(); // Reload list
+        });
+      } else {
+        // If called from inside the Modify RWE modal:
+        const localId = $('#modifyRweForm').data('rweid');
+        deleteItem(`/delete-rwe/${localId}`, 'RWE deleted successfully!', 'Error deleting RWE.', () => {
+          closeModal('modifyRweModal');
+          listRwes();
+        });
+      }
+    }
+
+    function deleteItem(endpoint, successMessage, errorMessage, afterSuccess) {
+      sendJsonRequest(endpoint, 'DELETE')
+        .then(data => {
+          if (data.success) {
+            showAlert(successMessage);
+            if (afterSuccess) afterSuccess();
+          } else {
+            showAlert(errorMessage);
+          }
+        })
+        .catch(error => {
+          console.error(errorMessage, error);
+          showAlert(errorMessage);
+        });
     }
 
     function applyRwe() {
@@ -1090,16 +1200,20 @@
         .then(data => {
           if (data.success) {
             data.rwes.forEach(rwe => {
-              const threatPattern = new RegExp(`(## Threat: ${rwe.threat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} ##)([\\s\\S]*?)(## |$)`, 'g');
+              const threatPattern = new RegExp(
+                `(## Threat: ${rwe.threat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} ##)([\\s\\S]*?)(## |$)`,
+                'g'
+              );
               responseContent = responseContent.replace(threatPattern, (match, p1, p2, p3) => {
-                const updatedSection = p2.replace(/(\*\*Real-World Example:\*\*[\s\S]*?)(?=\*\*Impact if Exploited:\*\*|$)/, 
-                  `**Real-World Example:** ${rwe.description} Reference: ${rwe.reference}\n\n`);
+                const updatedSection = p2.replace(
+                  /(\*\*Real-World Example:\*\*[\s\S]*?)(?=\*\*Impact if Exploited:\*\*|$)/,
+                  `**Real-World Example:** ${rwe.description} Reference: ${rwe.reference}\n\n`
+                );
                 return `${p1}${updatedSection}${p3}`;
               });
             });
 
             responseTextarea.value = responseContent;
-            adjustTextareaHeight(responseTextarea);
           } else {
             showAlert('Error applying RWEs.');
           }
@@ -1203,30 +1317,6 @@
           showAlert('Error selecting report.');
         });
     }
-
-    // Example of modal transition usage
-    window.showModifyRwe = function(rweid) {
-      handleModalTransition('listRweModal', 'modifyRweModal');
-      $.get(`/get-rwe/${rweid}`, function(data) {
-        if (data.success) {
-          $('#modifyRweForm').data('rweid', rweid);
-          $('#modifyRweThreat').val(data.rwe.threat);
-          $('#modifyRweDescription').val(data.rwe.description);
-          $('#modifyRweReference').val(data.rwe.reference);
-        } else {
-          showAlert('Error fetching RWE data.');
-        }
-      });
-    }
-
-    function closeModifyRweModal() {
-      closeModal('modifyRweModal');
-    }
-
-    function closeListRweModal() {
-      closeModal('listRweModal');
-    }
-
   </script>
 </body>
 </html>
